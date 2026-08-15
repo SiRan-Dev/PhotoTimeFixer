@@ -40,16 +40,16 @@
 
 ### 2. 视频时间脚本（电脑端）
 
-**文件**：`set_video_time.py` + `设置视频时间.bat`
+**目录**：`video_time_fixer/`（含 `set_video_time.py`、`设置视频时间.bat`、`tools/exiftool.exe`）
 
 **用途**：把脚本所在文件夹（含子文件夹）下所有视频文件的**文件时间**统一改为各自的**拍摄时间**。
 
 **用法**：
-1. 把 `set_video_time.py`、`设置视频时间.bat` 和 `tools`（含 `exiftool.exe`）一起复制到视频所在文件夹；
+1. 把 `video_time_fixer/` 整个文件夹（脚本 + bat + tools）复制到视频所在文件夹；
 2. 双击 `设置视频时间.bat`；
 3. 处理完成后，把整个文件夹重新导入手机（复制或 adb push 都会保留文件时间），相册会按拍摄时间重新分组。
 
-**依赖**：ExifTool（脚本会自动在「脚本目录 / tools 子目录 / 系统 PATH」中查找，找不到时按提示到 <https://exiftool.org/> 下载）。
+**依赖**：ExifTool（已内置在 `video_time_fixer/tools/`，脚本会自动查找）。
 
 > 视频同样存在「同一天内排序按 `date_added`」的限制：重新导入后 `date_added` 会变成导入时间，因此**同一天内多个视频的相对顺序仍可能不对**，但日期分组会正确。
 
