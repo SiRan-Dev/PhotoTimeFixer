@@ -1,5 +1,15 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
+}
+
+// 从 keystore/keystore.properties 读取签名配置（该文件已 gitignore，不提交）
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("keystore/keystore.properties")
+    if (f.exists()) {
+        f.inputStream().use { load(it) }
+    }
 }
 
 android {
@@ -12,14 +22,24 @@ android {
         applicationId = "com.sirandev.phototimefixer"
         minSdk = 24
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+            storePassword = keystoreProps.getProperty("storePassword")
+            keyAlias = keystoreProps.getProperty("keyAlias")
+            keyPassword = keystoreProps.getProperty("keyPassword")
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             optimization {
                 enable = false
             }
