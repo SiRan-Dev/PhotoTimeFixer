@@ -9,6 +9,7 @@
     <string name="cancel_select_all">取消全选</string>
     <string name="fix_selected">处理选中</string>
     <string name="thumbnail_desc">预览图</string>
+    <string name="jump_to_abnormal">跳到异常照片</string>
 
     <!-- Threshold options -->
     <string name="threshold_min">1 分钟</string>

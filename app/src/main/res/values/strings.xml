@@ -9,6 +9,7 @@
     <string name="cancel_select_all">Deselect all</string>
     <string name="fix_selected">Fix selected</string>
     <string name="thumbnail_desc">Preview image</string>
+    <string name="jump_to_abnormal">Jump to abnormal photo</string>
 
     <!-- Threshold options -->
     <string name="threshold_min">1 min</string>

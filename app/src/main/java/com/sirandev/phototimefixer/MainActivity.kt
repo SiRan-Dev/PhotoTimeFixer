@@ -58,9 +58,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnFixSelected: Button
     private lateinit var btnSelectAll: Button
     private lateinit var btnThreshold: Button
+    private lateinit var btnJumpAbnormal: Button
     private lateinit var tvStatus: TextView
 
     private val mediaItems = mutableListOf<MediaItem>()
+
+    // 上次跳转到的异常项位置，用于实现「逐条查看异常照片」
+    private var lastJumpedAbnormalIndex = -1
 
     // 判定「时间异常」的阈值（秒），可通过按钮循环切换
     private val prefs by lazy { getSharedPreferences("settings", MODE_PRIVATE) }
@@ -112,9 +116,11 @@ class MainActivity : AppCompatActivity() {
         btnFixSelected = findViewById(R.id.btnFixSelected)
         btnSelectAll = findViewById(R.id.btnSelectAll)
         btnThreshold = findViewById(R.id.btnThreshold)
+        btnJumpAbnormal = findViewById(R.id.btnJumpAbnormal)
         tvStatus = findViewById(R.id.tvStatus)
 
         updateThresholdButton()
+        updateJumpAbnormalButton()
 
         adapter = MediaAdapter(
             items = mediaItems,
@@ -134,6 +140,7 @@ class MainActivity : AppCompatActivity() {
         btnFixSelected.setOnClickListener { fixSelected() }
         btnSelectAll.setOnClickListener { toggleSelectAll() }
         btnThreshold.setOnClickListener { cycleThreshold() }
+        btnJumpAbnormal.setOnClickListener { jumpToNextAbnormal() }
 
         checkPermissionsAndScan()
     }
@@ -151,6 +158,35 @@ class MainActivity : AppCompatActivity() {
         prefs.edit { putLong("threshold_seconds", thresholdSeconds) }
         updateThresholdButton()
         adapter.notifyItemRangeChanged(0, mediaItems.size)
+        updateJumpAbnormalButton()
+    }
+
+    // ── 跳转到异常照片 ─────────────────────────────────────
+
+    /**
+     * 有异常照片时才显示「跳到异常照片」按钮。
+     * 列表重新扫描 / 阈值变化后调用，重置跳转进度。
+     */
+    private fun updateJumpAbnormalButton() {
+        lastJumpedAbnormalIndex = -1
+        val hasAbnormal = mediaItems.any { it.isAbnormal(thresholdSeconds) }
+        btnJumpAbnormal.visibility = if (hasAbnormal) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * 依次跳转到下一条异常照片；看完最后一条后回到第一条。
+     * 跳转目标行的时间信息会以红色显示，方便确认。
+     */
+    private fun jumpToNextAbnormal() {
+        val abnormalIdx = mediaItems.indices.filter { mediaItems[it].isAbnormal(thresholdSeconds) }
+        if (abnormalIdx.isEmpty()) {
+            btnJumpAbnormal.visibility = View.GONE
+            return
+        }
+        val pos = abnormalIdx.firstOrNull { it > lastJumpedAbnormalIndex } ?: abnormalIdx.first()
+        lastJumpedAbnormalIndex = pos
+        (recyclerView.layoutManager as? LinearLayoutManager)
+            ?.scrollToPositionWithOffset(pos, 0)
     }
 
     // ── 权限 ──────────────────────────────────────────────
@@ -228,6 +264,7 @@ class MainActivity : AppCompatActivity() {
                 btnScan.isEnabled = true
                 val abnormal = items.count { it.isAbnormal(thresholdSeconds) }
                 tvStatus.text = getString(R.string.status_result, items.size, abnormal)
+                updateJumpAbnormalButton()
             }
         }.start()
     }
