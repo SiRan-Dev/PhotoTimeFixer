@@ -48,6 +48,9 @@ import kotlin.math.abs
  */
 class MainActivity : AppCompatActivity() {
 
+    private val Number.dpToPx: Int
+        get() = (this.toFloat() * resources.displayMetrics.density + 0.5f).toInt()
+
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: MediaAdapter
     private lateinit var btnScan: Button
@@ -61,21 +64,39 @@ class MainActivity : AppCompatActivity() {
     // 判定「时间异常」的阈值（秒），可通过按钮循环切换
     private val prefs by lazy { getSharedPreferences("settings", MODE_PRIVATE) }
     private var thresholdSeconds = 60 * 60L  // 默认 1 小时，运行时从 prefs 恢复
-    private val thresholdOptions = arrayOf(
-        "1 分钟" to 60L,
-        "10 分钟" to 600L,
-        "1 小时" to 3600L,
-        "1 天" to 86400L,
-    )
+    private val thresholdOptions by lazy {
+        arrayOf(
+            getString(R.string.threshold_min) to 60L,
+            getString(R.string.threshold_min10) to 600L,
+            getString(R.string.threshold_hour) to 3600L,
+            getString(R.string.threshold_day) to 86400L,
+        )
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 为状态栏/摄像头区域预留安全空间，避免标题与状态栏重叠
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+        // 为刘海/挖孔、状态栏、手势条及屏幕圆角预留安全空间
+        val mainView = findViewById<View>(R.id.main)
+        val bottomBar = findViewById<View>(R.id.bottomBar)
+        ViewCompat.setOnApplyWindowInsetsListener(mainView) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            val displayCutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            val rounded = insets.getInsets(WindowInsetsCompat.Type.roundedCorners())
+            v.setPadding(
+                maxOf(systemBars.left, displayCutout.left, rounded.left, 12.dpToPx),
+                maxOf(systemBars.top, displayCutout.top, rounded.top, 12.dpToPx),
+                maxOf(systemBars.right, displayCutout.right, rounded.right, 12.dpToPx),
+                maxOf(systemBars.bottom, rounded.bottom, 12.dpToPx)
+            )
+            // 底部操作栏额外留空，避免被屏幕圆角或手势条遮挡
+            bottomBar.setPadding(
+                bottomBar.paddingLeft,
+                bottomBar.paddingTop,
+                bottomBar.paddingRight,
+                8.dpToPx
+            )
             insets
         }
 
@@ -114,7 +135,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateThresholdButton() {
-        val label = thresholdOptions.firstOrNull { it.second == thresholdSeconds }?.first ?: "1 小时"
+        val label = thresholdOptions.firstOrNull { it.second == thresholdSeconds }?.first
+            ?: getString(R.string.threshold_hour)
         btnThreshold.text = getString(R.string.threshold_label, label)
     }
 

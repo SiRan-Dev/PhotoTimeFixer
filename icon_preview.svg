@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 108 108">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="108" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8A7DE6"/>
+      <stop offset="1" stop-color="#5746C6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 与 Android 自适应图标一致的背景（圆角方形模拟系统裁切） -->
+  <rect width="108" height="108" rx="24" fill="url(#bg)"/>
+
+  <!-- 时钟表盘外环 -->
+  <circle cx="54" cy="54" r="22.5" fill="none" stroke="#FFFFFF" stroke-width="4.5"/>
+
+  <!-- 时针（10 点方向） -->
+  <line x1="54" y1="54" x2="43.2" y2="47.8" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- 分针（2 点方向） -->
+  <line x1="54" y1="54" x2="67.9" y2="46" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- 修复完成对勾 -->
+  <polyline points="65,78 69,81.5 79,70" fill="none" stroke="#8CE99A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

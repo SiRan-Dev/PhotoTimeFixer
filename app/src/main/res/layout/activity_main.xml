@@ -9,7 +9,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="PhotoTimeFixer"
+        android:text="@string/app_name"
         android:textSize="20sp"
         android:textStyle="bold" />
 
@@ -18,7 +18,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="正在扫描……"
+        android:text="@string/status_scanning"
         android:textSize="14sp" />
 
     <androidx.recyclerview.widget.RecyclerView
@@ -33,34 +33,36 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="阈值：1 小时" />
+        android:text="@string/threshold_label" />
 
     <LinearLayout
+        android:id="@+id/bottomBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginTop="4dp">
+        android:layout_marginTop="4dp"
+        android:paddingBottom="8dp">
 
         <Button
             android:id="@+id/btnScan"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="重新扫描" />
+            android:text="@string/rescan" />
 
         <Button
             android:id="@+id/btnSelectAll"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="全选异常" />
+            android:text="@string/select_all_abnormal" />
 
         <Button
             android:id="@+id/btnFixSelected"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="处理选中" />
+            android:text="@string/fix_selected" />
     </LinearLayout>
 
 </LinearLayout>

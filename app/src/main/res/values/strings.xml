@@ -1,15 +1,30 @@
 <resources>
     <string name="app_name">PhotoTimeFixer</string>
-    <string name="item_info">拍摄 %1$s · 文件 %2$s</string>
-    <string name="status_scanning">正在扫描相册……</string>
-    <string name="status_result">共 %1$d 张照片，疑似时间异常 %2$d 张</string>
-    <string name="status_processing">正在处理 %1$d 张……</string>
-    <string name="status_done">处理完成：成功 %1$d，失败 %2$d</string>
-    <string name="threshold_label">阈值：%1$s</string>
-    <string name="toast_select_hint">请先勾选要处理的照片</string>
-    <string name="toast_open_fail">无法打开相册</string>
-    <string name="toast_grant_storage">请授予「所有文件访问权限」以修改照片时间</string>
-    <string name="time_unknown">未知</string>
-    <string name="select_all_abnormal">全选异常</string>
-    <string name="cancel_select_all">取消全选</string>
+
+    <!-- Layout -->
+    <string name="status_scanning">Scanning gallery…</string>
+    <string name="threshold_label">Threshold: %1$s</string>
+    <string name="rescan">Rescan</string>
+    <string name="select_all_abnormal">Select all</string>
+    <string name="cancel_select_all">Deselect all</string>
+    <string name="fix_selected">Fix selected</string>
+    <string name="thumbnail_desc">Preview image</string>
+
+    <!-- Threshold options -->
+    <string name="threshold_min">1 min</string>
+    <string name="threshold_min10">10 min</string>
+    <string name="threshold_hour">1 hour</string>
+    <string name="threshold_day">1 day</string>
+
+    <!-- List & status -->
+    <string name="item_info">Taken %1$s · File %2$s</string>
+    <string name="status_result">Scanned: %1$d · abnormal: %2$d</string>
+    <string name="status_processing">Fixing %1$d…</string>
+    <string name="status_done">Done: %1$d succeeded · %2$d failed</string>
+    <string name="time_unknown">Unknown</string>
+
+    <!-- Toasts -->
+    <string name="toast_select_hint">Select the photos to fix first</string>
+    <string name="toast_open_fail">Can\'t open gallery</string>
+    <string name="toast_grant_storage">Grant “All files access” permission to modify photo time</string>
 </resources>

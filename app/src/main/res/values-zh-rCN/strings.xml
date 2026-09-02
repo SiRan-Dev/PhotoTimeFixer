@@ -1,0 +1,30 @@
+<resources>
+    <string name="app_name">照片时间修复</string>
+
+    <!-- Layout -->
+    <string name="status_scanning">正在扫描相册……</string>
+    <string name="threshold_label">阈值：%1$s</string>
+    <string name="rescan">重新扫描</string>
+    <string name="select_all_abnormal">全选异常</string>
+    <string name="cancel_select_all">取消全选</string>
+    <string name="fix_selected">处理选中</string>
+    <string name="thumbnail_desc">预览图</string>
+
+    <!-- Threshold options -->
+    <string name="threshold_min">1 分钟</string>
+    <string name="threshold_min10">10 分钟</string>
+    <string name="threshold_hour">1 小时</string>
+    <string name="threshold_day">1 天</string>
+
+    <!-- List & status -->
+    <string name="item_info">拍摄 %1$s · 文件 %2$s</string>
+    <string name="status_result">共 %1$d 张照片，疑似时间异常 %2$d 张</string>
+    <string name="status_processing">正在处理 %1$d 张……</string>
+    <string name="status_done">处理完成：成功 %1$d，失败 %2$d</string>
+    <string name="time_unknown">未知</string>
+
+    <!-- Toasts -->
+    <string name="toast_select_hint">请先勾选要处理的照片</string>
+    <string name="toast_open_fail">无法打开相册</string>
+    <string name="toast_grant_storage">请授予「所有文件访问权限」以修改照片时间</string>
+</resources>
