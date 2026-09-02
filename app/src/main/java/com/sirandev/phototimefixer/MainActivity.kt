@@ -18,6 +18,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -32,6 +33,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.color.DynamicColors
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -57,8 +59,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnScan: Button
     private lateinit var btnFixSelected: Button
     private lateinit var btnSelectAll: Button
-    private lateinit var btnThreshold: Button
     private lateinit var btnJumpAbnormal: Button
+    private lateinit var btnSettings: ImageButton
     private lateinit var tvStatus: TextView
 
     private val mediaItems = mutableListOf<MediaItem>()
@@ -66,7 +68,7 @@ class MainActivity : AppCompatActivity() {
     // 上次跳转到的异常项位置，用于实现「逐条查看异常照片」
     private var lastJumpedAbnormalIndex = -1
 
-    // 判定「时间异常」的阈值（秒），可通过按钮循环切换
+    // 判定「时间异常」的阈值（秒），通过右上角「设置」修改
     private val prefs by lazy { getSharedPreferences("settings", MODE_PRIVATE) }
     private var thresholdSeconds = 60 * 60L  // 默认 1 小时，运行时从 prefs 恢复
     private val thresholdOptions by lazy {
@@ -115,11 +117,10 @@ class MainActivity : AppCompatActivity() {
         btnScan = findViewById(R.id.btnScan)
         btnFixSelected = findViewById(R.id.btnFixSelected)
         btnSelectAll = findViewById(R.id.btnSelectAll)
-        btnThreshold = findViewById(R.id.btnThreshold)
         btnJumpAbnormal = findViewById(R.id.btnJumpAbnormal)
+        btnSettings = findViewById(R.id.btnSettings)
         tvStatus = findViewById(R.id.tvStatus)
 
-        updateThresholdButton()
         updateJumpAbnormalButton()
 
         adapter = MediaAdapter(
@@ -139,24 +140,40 @@ class MainActivity : AppCompatActivity() {
         btnScan.setOnClickListener { checkPermissionsAndScan() }
         btnFixSelected.setOnClickListener { fixSelected() }
         btnSelectAll.setOnClickListener { toggleSelectAll() }
-        btnThreshold.setOnClickListener { cycleThreshold() }
+        btnSettings.setOnClickListener { showSettingsDialog() }
         btnJumpAbnormal.setOnClickListener { jumpToNextAbnormal() }
 
         checkPermissionsAndScan()
     }
 
-    private fun updateThresholdButton() {
-        val label = thresholdOptions.firstOrNull { it.second == thresholdSeconds }?.first
-            ?: getString(R.string.threshold_hour)
-        btnThreshold.text = getString(R.string.threshold_label, label)
+    // ── 设置 ──────────────────────────────────────────────
+
+    /**
+     * 打开右上角「设置」：目前提供时间异常判定阈值的选择。
+     * 确定后立即应用：刷新列表红字标记与状态栏计数，并重置跳转进度。
+     */
+    private fun showSettingsDialog() {
+        val labels = thresholdOptions.map { it.first }.toTypedArray()
+        var checked = thresholdOptions.indexOfFirst { it.second == thresholdSeconds }
+            .coerceAtLeast(0)
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.threshold_setting_title)
+            .setSingleChoiceItems(labels, checked) { _, which -> checked = which }
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                thresholdSeconds = thresholdOptions[checked].second
+                prefs.edit { putLong("threshold_seconds", thresholdSeconds) }
+                applyThresholdChange()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
-    private fun cycleThreshold() {
-        val idx = thresholdOptions.indexOfFirst { it.second == thresholdSeconds }
-        val next = thresholdOptions[(idx + 1) % thresholdOptions.size]
-        thresholdSeconds = next.second
-        prefs.edit { putLong("threshold_seconds", thresholdSeconds) }
-        updateThresholdButton()
+    /**
+     * 阈值变更后刷新列表红字与状态计数，并重置跳转进度。
+     */
+    private fun applyThresholdChange() {
+        val abnormal = mediaItems.count { it.isAbnormal(thresholdSeconds) }
+        tvStatus.text = getString(R.string.status_result, mediaItems.size, abnormal)
         adapter.notifyItemRangeChanged(0, mediaItems.size)
         updateJumpAbnormalButton()
     }
@@ -164,13 +181,13 @@ class MainActivity : AppCompatActivity() {
     // ── 跳转到异常照片 ─────────────────────────────────────
 
     /**
-     * 有异常照片时才显示「跳到异常照片」按钮。
+     * 存在异常照片时启用「跳到异常」按钮，否则置灰。
      * 列表重新扫描 / 阈值变化后调用，重置跳转进度。
      */
     private fun updateJumpAbnormalButton() {
         lastJumpedAbnormalIndex = -1
         val hasAbnormal = mediaItems.any { it.isAbnormal(thresholdSeconds) }
-        btnJumpAbnormal.visibility = if (hasAbnormal) View.VISIBLE else View.GONE
+        btnJumpAbnormal.isEnabled = hasAbnormal
     }
 
     /**
@@ -179,10 +196,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun jumpToNextAbnormal() {
         val abnormalIdx = mediaItems.indices.filter { mediaItems[it].isAbnormal(thresholdSeconds) }
-        if (abnormalIdx.isEmpty()) {
-            btnJumpAbnormal.visibility = View.GONE
-            return
-        }
+        if (abnormalIdx.isEmpty()) return
         val pos = abnormalIdx.firstOrNull { it > lastJumpedAbnormalIndex } ?: abnormalIdx.first()
         lastJumpedAbnormalIndex = pos
         (recyclerView.layoutManager as? LinearLayoutManager)
