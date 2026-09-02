@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ============ 深色模式（蓝灰冷色系） ============ -->
+    <!-- Primary -->
+    <color name="primary">#AAC7FF</color>
+    <color name="on_primary">#062E6F</color>
+    <color name="primary_container">#1D439B</color>
+    <color name="on_primary_container">#D6E3FF</color>
+
+    <!-- Secondary -->
+    <color name="secondary">#B7C9E4</color>
+    <color name="on_secondary">#22364B</color>
+    <color name="secondary_container">#3A4B62</color>
+    <color name="on_secondary_container">#D6E4FF</color>
+
+    <!-- Tertiary（青绿） -->
+    <color name="tertiary">#55C7CD</color>
+    <color name="on_tertiary">#00363A</color>
+    <color name="tertiary_container">#004F53</color>
+    <color name="on_tertiary_container">#9FF1F4</color>
+
+    <!-- Error -->
+    <color name="error">#FFB4AB</color>
+    <color name="on_error">#690005</color>
+    <color name="error_container">#93000A</color>
+    <color name="on_error_container">#FFDAD6</color>
+
+    <!-- Surface -->
+    <color name="surface">#121316</color>
+    <color name="on_surface">#E3E2E8</color>
+    <color name="surface_variant">#44474F</color>
+    <color name="on_surface_variant">#C4C6D0</color>
+    <color name="surface_tint">@color/primary</color>
+    <color name="surface_bright">#38393F</color>
+    <color name="surface_dim">#121316</color>
+    <color name="surface_container_lowest">#0D0E13</color>
+    <color name="surface_container_low">#1A1B20</color>
+    <color name="surface_container">#1E1F24</color>
+    <color name="surface_container_high">#28292F</color>
+    <color name="surface_container_highest">#33343A</color>
+
+    <!-- Outline / others -->
+    <color name="outline">#8E9099</color>
+    <color name="outline_variant">#44474F</color>
+    <color name="inverse_surface">#E3E2E8</color>
+    <color name="inverse_on_surface">#2F3036</color>
+    <color name="scrim">#FF000000</color>
+</resources>

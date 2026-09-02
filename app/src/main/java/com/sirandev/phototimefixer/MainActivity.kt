@@ -31,6 +31,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.color.DynamicColors
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -74,21 +75,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Android 12+：跟随系统壁纸/主题动态取色（低版本自动忽略，使用 values 下的非紫配色）
+        DynamicColors.applyToActivityIfAvailable(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 为刘海/挖孔、状态栏、手势条及屏幕圆角预留安全空间
+        // 为刘海/挖孔、状态栏、手势条及屏幕圆角预留安全空间。
+        // 注：圆角的精确 inset（roundedCorners）在 androidx 兼容层未公开，
+        // 平台 API 在 SDK 36/37 中也不再暴露，故用较大的基础安全间距兜底。
         val mainView = findViewById<View>(R.id.main)
         val bottomBar = findViewById<View>(R.id.bottomBar)
         ViewCompat.setOnApplyWindowInsetsListener(mainView) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val displayCutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
-            val rounded = insets.getInsets(WindowInsetsCompat.Type.roundedCorners())
             v.setPadding(
-                maxOf(systemBars.left, displayCutout.left, rounded.left, 12.dpToPx),
-                maxOf(systemBars.top, displayCutout.top, rounded.top, 12.dpToPx),
-                maxOf(systemBars.right, displayCutout.right, rounded.right, 12.dpToPx),
-                maxOf(systemBars.bottom, rounded.bottom, 12.dpToPx)
+                maxOf(systemBars.left, displayCutout.left, 16.dpToPx),
+                maxOf(systemBars.top, displayCutout.top, 16.dpToPx),
+                maxOf(systemBars.right, displayCutout.right, 16.dpToPx),
+                maxOf(systemBars.bottom, displayCutout.bottom, 16.dpToPx)
             )
             // 底部操作栏额外留空，避免被屏幕圆角或手势条遮挡
             bottomBar.setPadding(

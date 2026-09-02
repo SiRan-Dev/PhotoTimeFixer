@@ -2,4 +2,50 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- ============ 非动态主题回退配色（蓝灰冷色系，避开 Material3 默认紫） ============ -->
+    <!-- Primary -->
+    <color name="primary">#0B57D0</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="primary_container">#D3E3FD</color>
+    <color name="on_primary_container">#041E49</color>
+
+    <!-- Secondary -->
+    <color name="secondary">#526070</color>
+    <color name="on_secondary">#FFFFFF</color>
+    <color name="secondary_container">#D6E4FF</color>
+    <color name="on_secondary_container">#0E2947</color>
+
+    <!-- Tertiary（青绿，避免任何紫/粉倾向） -->
+    <color name="tertiary">#00696E</color>
+    <color name="on_tertiary">#FFFFFF</color>
+    <color name="tertiary_container">#9CF1F4</color>
+    <color name="on_tertiary_container">#002022</color>
+
+    <!-- Error -->
+    <color name="error">#BA1A1A</color>
+    <color name="on_error">#FFFFFF</color>
+    <color name="error_container">#FFDAD6</color>
+    <color name="on_error_container">#410002</color>
+
+    <!-- Surface（中性，不带紫色调） -->
+    <color name="surface">#F8F9FC</color>
+    <color name="on_surface">#1A1C1F</color>
+    <color name="surface_variant">#E1E2E8</color>
+    <color name="on_surface_variant">#44474F</color>
+    <color name="surface_tint">@color/primary</color>
+    <color name="surface_bright">#F8F9FC</color>
+    <color name="surface_dim">#D8DAE0</color>
+    <color name="surface_container_lowest">#FFFFFF</color>
+    <color name="surface_container_low">#F2F3F7</color>
+    <color name="surface_container">#ECEDF1</color>
+    <color name="surface_container_high">#E4E5EA</color>
+    <color name="surface_container_highest">#DEDFE5</color>
+
+    <!-- Outline / others -->
+    <color name="outline">#75777F</color>
+    <color name="outline_variant">#C4C6CE</color>
+    <color name="inverse_surface">#2F3036</color>
+    <color name="inverse_on_surface">#F2F2F8</color>
+    <color name="scrim">#FF000000</color>
 </resources>
