@@ -1,6 +1,16 @@
 <resources>
     <string name="app_name">照片时间修复</string>
 
+    <!-- Settings page -->
+    <string name="back">返回</string>
+    <string name="version_name">版本 %1$s</string>
+    <string name="links_section">相关链接</string>
+    <string name="link_homepage">项目主页</string>
+    <string name="link_homepage_url">github.com/SiRan-Dev/PhotoTimeFixer</string>
+    <string name="link_video_script">视频时间修复脚本（电脑端）</string>
+    <string name="link_video_script_url">从 GitHub Releases 下载 ZIP</string>
+    <string name="license_notice">许可证：GPL-3.0-or-later</string>
+
     <!-- Layout -->
     <string name="status_scanning">正在扫描相册……</string>
     <string name="rescan">重新扫描</string>

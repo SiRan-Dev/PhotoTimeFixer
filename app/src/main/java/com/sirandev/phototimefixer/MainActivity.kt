@@ -53,7 +53,6 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.color.DynamicColors
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -88,17 +87,9 @@ class MainActivity : AppCompatActivity() {
     // 上次跳转到的异常项位置，用于实现「逐条查看异常照片」
     private var lastJumpedAbnormalIndex = -1
 
-    // 判定「时间异常」的阈值（秒），通过右上角「设置」修改
+    // 判定「时间异常」的阈值（秒），在设置页中修改
     private val prefs by lazy { getSharedPreferences("settings", MODE_PRIVATE) }
     private var thresholdSeconds = 60 * 60L  // 默认 1 小时，运行时从 prefs 恢复
-    private val thresholdOptions by lazy {
-        arrayOf(
-            getString(R.string.threshold_min) to 60L,
-            getString(R.string.threshold_min10) to 600L,
-            getString(R.string.threshold_hour) to 3600L,
-            getString(R.string.threshold_day) to 86400L,
-        )
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Android 12+：跟随系统壁纸/主题动态取色（低版本自动忽略，使用 values 下的非紫配色）
@@ -171,32 +162,25 @@ class MainActivity : AppCompatActivity() {
         btnScan.setOnClickListener { checkPermissionsAndScan() }
         btnFixSelected.setOnClickListener { fixSelected() }
         btnSelectAll.setOnClickListener { toggleSelectAll() }
-        btnSettings.setOnClickListener { showSettingsDialog() }
+        btnSettings.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
         btnJumpAbnormal.setOnClickListener { jumpToNextAbnormal() }
 
         checkPermissionsAndScan()
     }
 
-    // ── 设置 ──────────────────────────────────────────────
-
     /**
-     * 打开右上角「设置」：目前提供时间异常判定阈值的选择。
-     * 确定后立即应用：刷新列表红字标记与状态栏计数，并重置跳转进度。
+     * 从设置页返回时同步阈值：若用户在设置页调整了阈值，
+     * 立即刷新列表红字与状态计数，并重置跳转进度。
      */
-    private fun showSettingsDialog() {
-        val labels = thresholdOptions.map { it.first }.toTypedArray()
-        var checked = thresholdOptions.indexOfFirst { it.second == thresholdSeconds }
-            .coerceAtLeast(0)
-        MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.threshold_setting_title)
-            .setSingleChoiceItems(labels, checked) { _, which -> checked = which }
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                thresholdSeconds = thresholdOptions[checked].second
-                prefs.edit { putLong("threshold_seconds", thresholdSeconds) }
-                applyThresholdChange()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+    override fun onResume() {
+        super.onResume()
+        val saved = prefs.getLong("threshold_seconds", thresholdSeconds)
+        if (saved != thresholdSeconds) {
+            thresholdSeconds = saved
+            applyThresholdChange()
+        }
     }
 
     /**

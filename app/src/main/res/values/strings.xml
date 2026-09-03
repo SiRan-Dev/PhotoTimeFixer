@@ -1,6 +1,18 @@
 <resources>
     <string name="app_name">PhotoTimeFixer</string>
 
+    <!-- Settings page -->
+    <string name="back">Back</string>
+    <string name="version_name">Version %1$s</string>
+    <string name="links_section">Links</string>
+    <string name="link_homepage">Project homepage</string>
+    <string name="link_homepage_url">github.com/SiRan-Dev/PhotoTimeFixer</string>
+    <string name="link_video_script">Video time fixer (PC)</string>
+    <string name="link_video_script_url">Download ZIP from GitHub Releases</string>
+    <string name="license_notice">License: GPL-3.0-or-later</string>
+    <string name="url_homepage" translatable="false">https://github.com/SiRan-Dev/PhotoTimeFixer</string>
+    <string name="url_video_script" translatable="false">https://github.com/SiRan-Dev/PhotoTimeFixer/releases/download/v1.3/video_time_fixer.zip</string>
+
     <!-- Layout -->
     <string name="status_scanning">Scanning gallery…</string>
     <string name="rescan">Rescan</string>
