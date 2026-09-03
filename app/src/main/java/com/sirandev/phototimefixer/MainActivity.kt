@@ -37,7 +37,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
-import android.widget.ImageButton
+import com.google.android.material.button.MaterialButton
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -79,7 +79,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnFixSelected: Button
     private lateinit var btnSelectAll: Button
     private lateinit var btnJumpAbnormal: Button
-    private lateinit var btnSettings: ImageButton
+    private lateinit var btnSettings: MaterialButton
     private lateinit var tvStatus: TextView
 
     private val mediaItems = mutableListOf<MediaItem>()

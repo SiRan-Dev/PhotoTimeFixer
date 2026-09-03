@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -21,16 +22,14 @@
             android:textSize="20sp"
             android:textStyle="bold" />
 
-        <ImageButton
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnSettings"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:contentDescription="@string/settings"
-            android:padding="8dp"
-            android:scaleType="centerInside"
-            android:src="@drawable/ic_settings"
-            android:tint="?attr/colorOnSurfaceVariant" />
+            app:icon="@drawable/ic_settings"
+            app:iconTint="?attr/colorOnSurfaceVariant" />
     </LinearLayout>
 
     <TextView
@@ -61,18 +60,20 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnScan"
+                style="@style/Widget.Material3.Button.TonalButton"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="56dp"
                 android:layout_weight="1"
                 android:layout_marginEnd="6dp"
                 android:text="@string/rescan" />
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnJumpAbnormal"
+                style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="56dp"
                 android:layout_weight="1"
                 android:layout_marginStart="6dp"
                 android:enabled="false"
@@ -83,20 +84,22 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="4dp">
+            android:layout_marginTop="8dp">
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSelectAll"
+                style="@style/Widget.Material3.Button.TonalButton"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="56dp"
                 android:layout_weight="1"
                 android:layout_marginEnd="6dp"
                 android:text="@string/select_all_abnormal" />
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnFixSelected"
+                style="@style/Widget.Material3.Button"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="56dp"
                 android:layout_weight="1"
                 android:layout_marginStart="6dp"
                 android:text="@string/fix_selected" />
