@@ -67,6 +67,6 @@
 
 ## 许可证
 
-本项目（App 与脚本）的自身代码采用 [MIT 许可证](LICENSE)。
+本项目（App 与脚本）的自身代码采用 [GNU GPL v3 许可证](LICENSE)。
 
-注意：`video_time_fixer/tools/` 下打包分发的 ExifTool（含 Strawberry Perl 运行时）是第三方软件，**不适用本项目的 MIT 许可证**，其许可证与版权声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+注意：`video_time_fixer/tools/` 下打包分发的 ExifTool（含 Strawberry Perl 运行时）是第三方软件，**不适用本项目的 GPL v3 许可证**，其许可证与版权声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

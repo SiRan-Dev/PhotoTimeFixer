@@ -1,8 +1,8 @@
 # 第三方组件许可声明（Third-Party Notices）
 
-本项目（PhotoTimeFixer）自身代码采用 [MIT 许可证](LICENSE)。
+本项目（PhotoTimeFixer）自身代码采用 [GNU GPL v3 许可证](LICENSE)。
 
-但 `video_time_fixer/tools/` 目录下打包分发的 **ExifTool（含 Strawberry Perl 运行时）** 是第三方软件，**不适用本项目的 MIT 许可证**，各自遵循其上游许可证如下。
+但 `video_time_fixer/tools/` 目录下打包分发的 **ExifTool（含 Strawberry Perl 运行时）** 是第三方软件，**不适用本项目的 GPL v3 许可证**，各自遵循其上游许可证如下。
 
 ## ExifTool
 
