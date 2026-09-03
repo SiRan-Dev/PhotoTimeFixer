@@ -1,0 +1,12 @@
+<resources>
+    <!--
+        夜间模式主题覆盖：在 day 主题的 Base.Theme.PhotoTimeFixer 基础上，
+        把状态栏 / 导航栏前景色翻转为「暗背景配浅色图标」。
+        颜色相关属性（colors.xml 中已有夜间配色）会自动通过资源系统切换，
+        无需在此重复声明。
+    -->
+    <style name="Theme.PhotoTimeFixer" parent="Base.Theme.PhotoTimeFixer">
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

@@ -22,6 +22,7 @@ import android.Manifest
 import android.content.ContentUris
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.media.MediaScannerConnection
 import android.net.Uri
@@ -47,6 +48,7 @@ import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -103,6 +105,17 @@ class MainActivity : AppCompatActivity() {
         DynamicColors.applyToActivityIfAvailable(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // 根据当前 UI 模式显式控制状态栏 / 导航栏前景色。
+        // 主题里已经设置过 android:windowLightStatusBar，但 v31+ DynamicColors
+        // 会重新生成主题，因此用 controller 兜底一次，确保状态栏文字/图标颜色与
+        // 当前背景匹配（浅色背景→深色图标，深色背景→浅色图标）。
+        val isNightMode = resources.configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !isNightMode
+            isAppearanceLightNavigationBars = !isNightMode
+        }
 
         // 为刘海/挖孔、状态栏、手势条及屏幕圆角预留安全空间。
         // 注：圆角的精确 inset（roundedCorners）在 androidx 兼容层未公开，

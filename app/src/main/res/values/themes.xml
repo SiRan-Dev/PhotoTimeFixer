@@ -40,6 +40,13 @@
         <item name="colorOutline">@color/outline</item>
         <item name="colorOutlineVariant">@color/outline_variant</item>
         <item name="android:colorBackground">@color/surface</item>
+
+        <!-- 状态栏 / 导航栏前景色：
+             - windowLightStatusBar=true 表示状态栏背景是浅色，用深色文字/图标
+             - windowLightNavigationBar=true 同理作用于底部手势条（minSdk 24 下属性会被系统忽略则无副作用）
+             night 模式在 values-night/themes.xml 中反之。-->
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 
     <style name="Theme.PhotoTimeFixer" parent="Base.Theme.PhotoTimeFixer" />
