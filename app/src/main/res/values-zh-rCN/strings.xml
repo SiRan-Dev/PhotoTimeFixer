@@ -10,6 +10,8 @@
     <string name="link_video_script">视频时间修复脚本（电脑端）</string>
     <string name="link_video_script_url">从 GitHub Releases 下载 ZIP</string>
     <string name="license_notice">许可证：GPL-3.0-or-later</string>
+    <string name="donate_section">支持作者</string>
+    <string name="donate_desc">如果这个小工具帮到了你，可以请作者喝杯咖啡</string>
 
     <!-- Layout -->
     <string name="status_scanning">正在扫描相册……</string>

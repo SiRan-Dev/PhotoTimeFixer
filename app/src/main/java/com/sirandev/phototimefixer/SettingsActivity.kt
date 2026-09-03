@@ -268,6 +268,46 @@ class SettingsActivity : ComponentActivity() {
                     }
                 }
 
+                // 分组标题：支持作者
+                Text(
+                    text = stringResource(R.string.donate_section),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 16.dp, top = 28.dp, bottom = 8.dp)
+                )
+
+                // 捐赠码卡片
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = stringResource(R.string.donate_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                        Image(
+                            painter = painterResource(R.drawable.donate),
+                            contentDescription = stringResource(R.string.donate_section),
+                            contentScale = ContentScale.FillWidth,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp)
+                                .clip(MaterialTheme.shapes.large)
+                        )
+                    }
+                }
+
                 // 底部许可证
                 Text(
                     text = stringResource(R.string.license_notice),
