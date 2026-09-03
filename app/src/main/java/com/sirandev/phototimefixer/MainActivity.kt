@@ -32,27 +32,65 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Size
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import android.widget.Button
-import android.widget.CheckBox
-import com.google.android.material.button.MaterialButton
-import android.widget.ImageView
-import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.net.toUri
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowCompat
-import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.color.DynamicColors
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -68,105 +106,37 @@ import kotlin.math.abs
  *
  * 本应用只处理照片；视频请使用工程根目录 video_time_fixer 下的脚本。
  */
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
 
-    private val Number.dpToPx: Int
-        get() = (this.toFloat() * resources.displayMetrics.density + 0.5f).toInt()
-
-    private lateinit var recyclerView: RecyclerView
-    private lateinit var adapter: MediaAdapter
-    private lateinit var btnScan: Button
-    private lateinit var btnFixSelected: Button
-    private lateinit var btnSelectAll: Button
-    private lateinit var btnJumpAbnormal: Button
-    private lateinit var btnSettings: MaterialButton
-    private lateinit var tvStatus: TextView
-
-    private val mediaItems = mutableListOf<MediaItem>()
-
-    // 上次跳转到的异常项位置，用于实现「逐条查看异常照片」
-    private var lastJumpedAbnormalIndex = -1
-
-    // 判定「时间异常」的阈值（秒），在设置页中修改
     private val prefs by lazy { getSharedPreferences("settings", MODE_PRIVATE) }
-    private var thresholdSeconds = 60 * 60L  // 默认 1 小时，运行时从 prefs 恢复
+
+    private val readMediaLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { checkPermissionsAndScan() }
+
+    private val manageStorageLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { checkPermissionsAndScan() }
+
+    // ── Compose 状态 ──────────────────────────────────────
+
+    private val mediaItems = mutableStateListOf<MediaItem>()
+    private var thresholdSeconds by mutableLongStateOf(60 * 60L)
+    private var scanning by mutableStateOf(false)
+    private var fixing by mutableStateOf(false)
+    private var statusText by mutableStateOf("")
+    private var lastJumpedAbnormalIndex by mutableIntStateOf(-1)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Android 12+：跟随系统壁纸/主题动态取色（低版本自动忽略，使用 values 下的非紫配色）
-        DynamicColors.applyToActivityIfAvailable(this)
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        // 根据当前 UI 模式显式控制状态栏 / 导航栏前景色。
-        // 主题里已经设置过 android:windowLightStatusBar，但 v31+ DynamicColors
-        // 会重新生成主题，因此用 controller 兜底一次，确保状态栏文字/图标颜色与
-        // 当前背景匹配（浅色背景→深色图标，深色背景→浅色图标）。
-        val isNightMode = resources.configuration.uiMode and
-            Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-        WindowCompat.getInsetsController(window, window.decorView).apply {
-            isAppearanceLightStatusBars = !isNightMode
-            isAppearanceLightNavigationBars = !isNightMode
-        }
-
-        // 为刘海/挖孔、状态栏、手势条及屏幕圆角预留安全空间。
-        // 注：圆角的精确 inset（roundedCorners）在 androidx 兼容层未公开，
-        // 平台 API 在 SDK 36/37 中也不再暴露，故用较大的基础安全间距兜底。
-        val mainView = findViewById<View>(R.id.main)
-        val bottomBar = findViewById<View>(R.id.bottomBar)
-        ViewCompat.setOnApplyWindowInsetsListener(mainView) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val displayCutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
-            v.setPadding(
-                maxOf(systemBars.left, displayCutout.left, 16.dpToPx),
-                maxOf(systemBars.top, displayCutout.top, 16.dpToPx),
-                maxOf(systemBars.right, displayCutout.right, 16.dpToPx),
-                maxOf(systemBars.bottom, displayCutout.bottom, 16.dpToPx)
-            )
-            // 底部操作栏额外留空，避免被屏幕圆角或手势条遮挡
-            bottomBar.setPadding(
-                bottomBar.paddingLeft,
-                bottomBar.paddingTop,
-                bottomBar.paddingRight,
-                8.dpToPx
-            )
-            insets
-        }
-
-        // 恢复上次选择的阈值
+        applySystemBarAppearance()
         thresholdSeconds = prefs.getLong("threshold_seconds", thresholdSeconds)
 
-        recyclerView = findViewById(R.id.recyclerView)
-        btnScan = findViewById(R.id.btnScan)
-        btnFixSelected = findViewById(R.id.btnFixSelected)
-        btnSelectAll = findViewById(R.id.btnSelectAll)
-        btnJumpAbnormal = findViewById(R.id.btnJumpAbnormal)
-        btnSettings = findViewById(R.id.btnSettings)
-        tvStatus = findViewById(R.id.tvStatus)
-
-        updateJumpAbnormalButton()
-
-        adapter = MediaAdapter(
-            items = mediaItems,
-            onToggle = { item ->
-                item.selected = !item.selected
-                val pos = mediaItems.indexOf(item)
-                if (pos >= 0) {
-                    adapter.notifyItemChanged(pos)
-                }
-            },
-            onOpen = { item -> openInGallery(item) },
-        )
-        recyclerView.layoutManager = LinearLayoutManager(this)
-        recyclerView.adapter = adapter
-
-        btnScan.setOnClickListener { checkPermissionsAndScan() }
-        btnFixSelected.setOnClickListener { fixSelected() }
-        btnSelectAll.setOnClickListener { toggleSelectAll() }
-        btnSettings.setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
+        setContent {
+            PhotoTimeFixerTheme {
+                MainScreen()
+            }
         }
-        btnJumpAbnormal.setOnClickListener { jumpToNextAbnormal() }
-
         checkPermissionsAndScan()
     }
 
@@ -179,59 +149,29 @@ class MainActivity : AppCompatActivity() {
         val saved = prefs.getLong("threshold_seconds", thresholdSeconds)
         if (saved != thresholdSeconds) {
             thresholdSeconds = saved
-            applyThresholdChange()
+            lastJumpedAbnormalIndex = -1
+            updateStatus()
         }
     }
 
-    /**
-     * 阈值变更后刷新列表红字与状态计数，并重置跳转进度。
-     */
-    private fun applyThresholdChange() {
+    private fun applySystemBarAppearance() {
+        val isNightMode = resources.configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !isNightMode
+            isAppearanceLightNavigationBars = !isNightMode
+        }
+    }
+
+    private fun updateStatus() {
         val abnormal = mediaItems.count { it.isAbnormal(thresholdSeconds) }
-        tvStatus.text = getString(R.string.status_result, mediaItems.size, abnormal)
-        adapter.notifyItemRangeChanged(0, mediaItems.size)
-        updateJumpAbnormalButton()
-    }
-
-    // ── 跳转到异常照片 ─────────────────────────────────────
-
-    /**
-     * 存在异常照片时启用「跳到异常」按钮，否则置灰。
-     * 列表重新扫描 / 阈值变化后调用，重置跳转进度。
-     */
-    private fun updateJumpAbnormalButton() {
-        lastJumpedAbnormalIndex = -1
-        val hasAbnormal = mediaItems.any { it.isAbnormal(thresholdSeconds) }
-        btnJumpAbnormal.isEnabled = hasAbnormal
-    }
-
-    /**
-     * 依次跳转到下一条异常照片；看完最后一条后回到第一条。
-     * 跳转目标行的时间信息会以红色显示，方便确认。
-     */
-    private fun jumpToNextAbnormal() {
-        val abnormalIdx = mediaItems.indices.filter { mediaItems[it].isAbnormal(thresholdSeconds) }
-        if (abnormalIdx.isEmpty()) return
-        val pos = abnormalIdx.firstOrNull { it > lastJumpedAbnormalIndex } ?: abnormalIdx.first()
-        lastJumpedAbnormalIndex = pos
-        (recyclerView.layoutManager as? LinearLayoutManager)
-            ?.scrollToPositionWithOffset(pos, 0)
+        statusText = getString(R.string.status_result, mediaItems.size, abnormal)
     }
 
     // ── 权限 ──────────────────────────────────────────────
 
-    private val readMediaLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { checkPermissionsAndScan() }
-
-    private val manageStorageLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { checkPermissionsAndScan() }
-
     private fun checkPermissionsAndScan() {
         if (Build.VERSION.SDK_INT >= 33) {
-            // Android 14+ 支持「选择性照片访问」：请求完整读取 + 选择性读取，
-            // 系统会弹出「全部照片 / 选中照片」供用户选择
             val needed = mutableListOf<String>()
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES)
                 != PackageManager.PERMISSION_GRANTED
@@ -273,29 +213,16 @@ class MainActivity : AppCompatActivity() {
     // ── 扫描 + 识别 ────────────────────────────────────────
 
     private fun scanAndIdentify() {
-        tvStatus.text = getString(R.string.status_scanning)
-        btnScan.isEnabled = false
-        Thread {
-            val items = queryMedia()
-            runOnUiThread {
-                val oldItems = ArrayList(mediaItems)
-                val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
-                    override fun getOldListSize() = oldItems.size
-                    override fun getNewListSize() = items.size
-                    override fun areItemsTheSame(oldPos: Int, newPos: Int) =
-                        oldItems[oldPos].uri == items[newPos].uri
-                    override fun areContentsTheSame(oldPos: Int, newPos: Int) =
-                        oldItems[oldPos] == items[newPos]
-                })
-                mediaItems.clear()
-                mediaItems.addAll(items)
-                diff.dispatchUpdatesTo(adapter)
-                btnScan.isEnabled = true
-                val abnormal = items.count { it.isAbnormal(thresholdSeconds) }
-                tvStatus.text = getString(R.string.status_result, items.size, abnormal)
-                updateJumpAbnormalButton()
-            }
-        }.start()
+        scanning = true
+        statusText = getString(R.string.status_scanning)
+        lifecycleScope.launch {
+            val items = withContext(Dispatchers.IO) { queryMedia() }
+            mediaItems.clear()
+            mediaItems.addAll(items)
+            scanning = false
+            lastJumpedAbnormalIndex = -1
+            updateStatus()
+        }
     }
 
     private fun queryMedia(): List<MediaItem> {
@@ -351,25 +278,21 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.toast_select_hint, Toast.LENGTH_SHORT).show()
             return
         }
-        fixItems(selected)
-    }
-
-    private fun fixItems(items: List<MediaItem>) {
-        tvStatus.text = getString(R.string.status_processing, items.size)
-        btnFixSelected.isEnabled = false
-        Thread {
+        fixing = true
+        statusText = getString(R.string.status_processing, selected.size)
+        lifecycleScope.launch {
             var ok = 0
             var fail = 0
-            for (item in items) {
-                if (fixOne(item)) ok++ else fail++
+            withContext(Dispatchers.IO) {
+                for (item in selected) {
+                    if (fixOne(item)) ok++ else fail++
+                }
             }
-            runOnUiThread {
-                btnFixSelected.isEnabled = true
-                tvStatus.text = getString(R.string.status_done, ok, fail)
-                Toast.makeText(this, getString(R.string.status_done, ok, fail), Toast.LENGTH_LONG).show()
-                scanAndIdentify()
-            }
-        }.start()
+            fixing = false
+            statusText = getString(R.string.status_done, ok, fail)
+            Toast.makeText(this@MainActivity, getString(R.string.status_done, ok, fail), Toast.LENGTH_LONG).show()
+            scanAndIdentify()
+        }
     }
 
     /**
@@ -411,74 +334,24 @@ class MainActivity : AppCompatActivity() {
         val allAbnormalSelected = abnormalItems.isNotEmpty() && abnormalItems.all { it.selected }
         val target = !allAbnormalSelected
         abnormalItems.forEach { it.selected = target }
-        adapter.notifyItemRangeChanged(0, mediaItems.size)
-        btnSelectAll.text = getString(
-            if (target) R.string.cancel_select_all else R.string.select_all_abnormal
-        )
     }
 
     // ── 数据模型 ───────────────────────────────────────────
 
-    data class MediaItem(
+    class MediaItem(
         val uri: Uri,
         val name: String,
         val path: String,
         val dateAddedSeconds: Long,
         val dateModifiedSeconds: Long,
         val dateTakenMillis: Long,
-        var selected: Boolean = false,
     ) {
+        var selected by mutableStateOf(false)
+
         fun isAbnormal(thresholdSeconds: Long): Boolean {
             if (dateTakenMillis <= 0) return false
             return abs(dateTakenMillis / 1000 - dateModifiedSeconds) > thresholdSeconds
         }
-    }
-
-    // ── 适配器 ─────────────────────────────────────────────
-
-    private inner class MediaAdapter(
-        private val items: List<MediaItem>,
-        private val onToggle: (MediaItem) -> Unit,
-        private val onOpen: (MediaItem) -> Unit,
-    ) : RecyclerView.Adapter<MediaAdapter.VH>() {
-
-        inner class VH(view: View) : RecyclerView.ViewHolder(view) {
-            val checkBox: CheckBox = view.findViewById(R.id.checkBox)
-            val ivThumb: ImageView = view.findViewById(R.id.ivThumb)
-            val tvName: TextView = view.findViewById(R.id.tvName)
-            val tvInfo: TextView = view.findViewById(R.id.tvInfo)
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_media, parent, false)
-            return VH(view)
-        }
-
-        override fun onBindViewHolder(holder: VH, position: Int) {
-            val item = items[position]
-            // 先清空监听器再设置勾选状态，避免复用 ViewHolder 时触发旧回调导致 notifyItemChanged 在布局中崩溃
-            holder.checkBox.setOnCheckedChangeListener(null)
-            holder.checkBox.isChecked = item.selected
-            holder.checkBox.setOnCheckedChangeListener { _, _ -> onToggle(item) }
-            holder.tvName.text = item.name
-            val taken = formatTime(item.dateTakenMillis)
-            val modified = formatTime(item.dateModifiedSeconds * 1000)
-            holder.tvInfo.text = getString(R.string.item_info, taken, modified)
-            holder.tvInfo.setTextColor(
-                if (item.isAbnormal(thresholdSeconds)) 0xFFE53935.toInt() else 0xFF616161.toInt()
-            )
-            // 缩略图（异步加载，避免阻塞列表滚动）
-            holder.ivThumb.setImageBitmap(null)
-            loadThumbnailAsync(item) { bmp ->
-                if (holder.absoluteAdapterPosition == position) {
-                    holder.ivThumb.setImageBitmap(bmp)
-                }
-            }
-            // 点击预览图跳转到相册对应照片
-            holder.ivThumb.setOnClickListener { onOpen(item) }
-        }
-
-        override fun getItemCount(): Int = items.size
     }
 
     private fun formatTime(millis: Long): String {
@@ -487,22 +360,14 @@ class MainActivity : AppCompatActivity() {
         return fmt.format(Date(millis))
     }
 
-    private val thumbExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
-
-    private fun loadThumbnailAsync(item: MediaItem, onResult: (Bitmap?) -> Unit) {
-        thumbExecutor.execute {
-            val bmp = loadThumbnail(item)
-            runOnUiThread { onResult(bmp) }
-        }
-    }
-
-    @Suppress("DEPRECATION")
-    private fun loadThumbnail(item: MediaItem): Bitmap? {
-        return try {
+    private suspend fun loadThumbnail(item: MediaItem): Bitmap? = withContext(Dispatchers.IO) {
+        try {
             if (Build.VERSION.SDK_INT >= 29) {
                 contentResolver.loadThumbnail(item.uri, Size(256, 256), null)
             } else {
+                @Suppress("DEPRECATION")
                 val id = ContentUris.parseId(item.uri)
+                @Suppress("DEPRECATION")
                 MediaStore.Images.Thumbnails.getThumbnail(
                     contentResolver, id, MediaStore.Images.Thumbnails.MINI_KIND, null
                 )
@@ -520,6 +385,205 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         } catch (_: Exception) {
             Toast.makeText(this, R.string.toast_open_fail, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // ── Compose UI ─────────────────────────────────────────
+
+    @Composable
+    private fun MainScreen() {
+        val listState = rememberLazyListState()
+        val scope = rememberCoroutineScope()
+        val context = LocalContext.current
+
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    .padding(horizontal = 16.dp)
+            ) {
+                // 顶栏：标题 + 设置
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = {
+                        context.startActivity(Intent(context, SettingsActivity::class.java))
+                    }) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_settings),
+                            contentDescription = stringResource(R.string.settings),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // 状态行
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+                )
+
+                // 列表
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    itemsIndexed(mediaItems, key = { _, item -> item.uri.toString() }) { _, item ->
+                        MediaRow(
+                            item = item,
+                            onToggle = { item.selected = !item.selected },
+                            onOpen = { openInGallery(item) },
+                            loadThumb = { loadThumbnail(item) }
+                        )
+                    }
+                }
+
+                // 底部 2×2 按钮区
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp, bottom = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        FilledTonalButton(
+                            onClick = { checkPermissionsAndScan() },
+                            enabled = !scanning,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp)
+                        ) {
+                            Text(stringResource(R.string.rescan))
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                val abnormalIdx = mediaItems.indices.filter {
+                                    mediaItems[it].isAbnormal(thresholdSeconds)
+                                }
+                                if (abnormalIdx.isNotEmpty()) {
+                                    val pos = abnormalIdx.firstOrNull { it > lastJumpedAbnormalIndex }
+                                        ?: abnormalIdx.first()
+                                    lastJumpedAbnormalIndex = pos
+                                    scope.launch {
+                                        listState.animateScrollToItem(pos)
+                                    }
+                                }
+                            },
+                            enabled = mediaItems.any { it.isAbnormal(thresholdSeconds) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp)
+                        ) {
+                            Text(stringResource(R.string.jump_to_abnormal))
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        FilledTonalButton(
+                            onClick = { toggleSelectAll() },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp)
+                        ) {
+                            Text(stringResource(R.string.select_all_abnormal))
+                        }
+                        Button(
+                            onClick = { fixSelected() },
+                            enabled = !fixing,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp)
+                        ) {
+                            Text(stringResource(R.string.fix_selected))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun MediaRow(
+        item: MediaItem,
+        onToggle: () -> Unit,
+        onOpen: () -> Unit,
+        loadThumb: suspend () -> Bitmap?,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = item.selected,
+                onCheckedChange = { onToggle() }
+            )
+
+            // 缩略图（异步加载）
+            var thumb by remember(item.uri) { mutableStateOf<Bitmap?>(null) }
+            LaunchedEffect(item.uri) {
+                thumb = loadThumb()
+            }
+            thumb?.let { bmp ->
+                Image(
+                    bitmap = bmp.asImageBitmap(),
+                    contentDescription = stringResource(R.string.thumbnail_desc),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .padding(start = 4.dp, end = 8.dp)
+                        .size(64.dp)
+                        .clip(MaterialTheme.shapes.medium)
+                        .clickable { onOpen() }
+                )
+            } ?: Spacer(
+                modifier = Modifier
+                    .padding(start = 4.dp, end = 8.dp)
+                    .size(64.dp)
+                    .clip(MaterialTheme.shapes.medium)
+                    .clickable { onOpen() }
+            )
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                val taken = formatTime(item.dateTakenMillis)
+                val modified = formatTime(item.dateModifiedSeconds * 1000)
+                Text(
+                    text = stringResource(R.string.item_info, taken, modified),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (item.isAbnormal(thresholdSeconds)) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            }
         }
     }
 }
