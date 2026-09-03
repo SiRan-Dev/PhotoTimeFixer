@@ -479,8 +479,10 @@ class MainActivity : ComponentActivity() {
                                     mediaItems[it].isAbnormal(thresholdSeconds)
                                 }
                                 if (abnormalIdx.isNotEmpty()) {
-                                    val pos = abnormalIdx.firstOrNull { it > lastJumpedAbnormalIndex }
-                                        ?: abnormalIdx.first()
+                                    // 列表按拍摄时间降序（新→旧），索引越大越旧。
+                                    // 从最旧的异常开始，逐条向更新的方向走，到底后回绕到最旧。
+                                    val pos = abnormalIdx.lastOrNull { it < lastJumpedAbnormalIndex }
+                                        ?: abnormalIdx.last()
                                     lastJumpedAbnormalIndex = pos
                                     scope.launch {
                                         listState.animateScrollToItem(pos)
