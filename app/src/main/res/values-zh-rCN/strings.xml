@@ -39,6 +39,7 @@
     <string name="fix_confirm_title">确认执行修复</string>
     <string name="fix_confirm_rename">将按拍摄时间重命名 %1$d 个文件：</string>
     <string name="fix_confirm_exif">将把文件名时间写入 %1$d 个照片的 EXIF</string>
+    <string name="fix_confirm_plain">将修复 %1$d 张照片的文件时间</string>
     <string name="fix_confirm_more">…以及其他 %1$d 个文件</string>
     <string name="fix_confirm_ok">确认执行</string>
     <string name="fix_confirm_cancel">取消</string>

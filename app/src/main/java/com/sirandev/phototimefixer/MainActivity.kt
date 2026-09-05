@@ -369,11 +369,12 @@ class MainActivity : ComponentActivity() {
 
     // ── 修复 ──────────────────────────────────────────────
 
-    /** 修复前的二次确认计划：本次将执行的 EXIF 写入与重命名。 */
+    /** 修复前的二次确认计划：本次将执行的动作明细（重命名 / EXIF 写入 / 仅修文件时间）。 */
     class FixConfirmPlan(
         val items: List<MediaItem>,
         val renames: Map<MediaItem, String>,
         val exifCount: Int,
+        val plainCount: Int,
     )
 
     private fun fixSelected() {
@@ -404,11 +405,13 @@ class MainActivity : ComponentActivity() {
             }
             fixPlanning = false
 
-            if (renames.isEmpty() && exifCount == 0) {
-                startFix(selected, renames)
-            } else {
-                fixConfirm = FixConfirmPlan(selected, renames, exifCount)
-            }
+            // 任何批量修复都必须先经用户确认，杜绝绕过
+            fixConfirm = FixConfirmPlan(
+                items = selected,
+                renames = renames,
+                exifCount = exifCount,
+                plainCount = selected.size - renames.size - exifCount,
+            )
         }
     }
 
@@ -831,6 +834,13 @@ class MainActivity : ComponentActivity() {
                                 if (plan.exifCount > 0) {
                                     Text(
                                         text = stringResource(R.string.fix_confirm_exif, plan.exifCount),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
+                                if (plan.plainCount > 0) {
+                                    Text(
+                                        text = stringResource(R.string.fix_confirm_plain, plan.plainCount),
                                         color = MaterialTheme.colorScheme.onSurface,
                                         modifier = Modifier.padding(top = 4.dp)
                                     )

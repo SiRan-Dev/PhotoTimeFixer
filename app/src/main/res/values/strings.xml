@@ -41,6 +41,7 @@
     <string name="fix_confirm_title">Confirm fix</string>
     <string name="fix_confirm_rename">Will rename %1$d files by shooting time:</string>
     <string name="fix_confirm_exif">Will write file name time into EXIF of %1$d photos</string>
+    <string name="fix_confirm_plain">Will fix file time of %1$d photos</string>
     <string name="fix_confirm_more">…and %1$d more files</string>
     <string name="fix_confirm_ok">Confirm</string>
     <string name="fix_confirm_cancel">Cancel</string>
