@@ -32,6 +32,8 @@
     <string name="fix_scheme_taken_desc">Use the earlier of EXIF shooting time and file time</string>
     <string name="fix_scheme_filename">File name time</string>
     <string name="fix_scheme_filename_desc">Parse time from file name, e.g. IMG_20230905_143022.jpg; fall back to shooting time when parsing fails</string>
+    <string name="exif_write_title">Write file name time into photo EXIF</string>
+    <string name="exif_write_desc">Applies to file name scheme; enable when EXIF shooting time is wrong or missing</string>
 
     <!-- Threshold options -->
     <string name="threshold_min">1 min</string>

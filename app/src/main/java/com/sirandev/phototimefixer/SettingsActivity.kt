@@ -48,11 +48,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -107,6 +109,9 @@ class SettingsActivity : ComponentActivity() {
         }
         var fixScheme by remember {
             mutableIntStateOf(prefs.getInt("fix_scheme", MainActivity.SCHEME_TAKEN))
+        }
+        var writeExif by remember {
+            mutableStateOf(prefs.getBoolean("write_exif", true))
         }
 
         val versionName = remember {
@@ -240,6 +245,37 @@ class SettingsActivity : ComponentActivity() {
                                     )
                                 }
                             }
+                        }
+
+                        // 开关：方案2下把文件名时间写入照片 EXIF（默认开启）
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 56.dp)
+                                .clip(MaterialTheme.shapes.medium)
+                                .clickable {
+                                    writeExif = !writeExif
+                                    prefs.edit { putBoolean("write_exif", writeExif) }
+                                }
+                                .padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.exif_write_title),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = stringResource(R.string.exif_write_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = writeExif,
+                                onCheckedChange = null // 由 Row 的 clickable 处理
+                            )
                         }
                     }
                 }

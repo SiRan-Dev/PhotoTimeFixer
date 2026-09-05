@@ -87,6 +87,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
+import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -131,6 +132,7 @@ class MainActivity : ComponentActivity() {
     private val mediaItems = mutableStateListOf<MediaItem>()
     private var thresholdSeconds by mutableLongStateOf(60 * 60L)
     private var fixScheme by mutableIntStateOf(SCHEME_TAKEN)
+    private var writeExif by mutableStateOf(true)
     private var scanning by mutableStateOf(false)
     private var fixing by mutableStateOf(false)
     private var statusText by mutableStateOf("")
@@ -141,6 +143,7 @@ class MainActivity : ComponentActivity() {
         applySystemBarAppearance()
         thresholdSeconds = prefs.getLong("threshold_seconds", thresholdSeconds)
         fixScheme = prefs.getInt("fix_scheme", SCHEME_TAKEN)
+        writeExif = prefs.getBoolean("write_exif", true)
 
         setContent {
             PhotoTimeFixerTheme {
@@ -158,9 +161,13 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         val savedThreshold = prefs.getLong("threshold_seconds", thresholdSeconds)
         val savedScheme = prefs.getInt("fix_scheme", SCHEME_TAKEN)
-        val changed = savedThreshold != thresholdSeconds || savedScheme != fixScheme
+        val savedWriteExif = prefs.getBoolean("write_exif", true)
+        val changed = savedThreshold != thresholdSeconds ||
+            savedScheme != fixScheme ||
+            savedWriteExif != writeExif
         if (savedThreshold != thresholdSeconds) thresholdSeconds = savedThreshold
         if (savedScheme != fixScheme) fixScheme = savedScheme
+        if (savedWriteExif != writeExif) writeExif = savedWriteExif
         if (changed) {
             lastJumpedAbnormalIndex = -1
             updateStatus()
@@ -314,8 +321,11 @@ class MainActivity : ComponentActivity() {
      * 1. 依据当前方案确定正确时间——
      *    · 方案1（默认）：取「文件时间与拍摄时间中更早者」；
      *    · 方案2：优先取从文件名解析出的拍摄时间，解析失败时回退到方案1 逻辑；
-     * 2. 把文件时间设为该时间；
-     * 3. 通过 rename 走 → 删记录 → rename 回 → 触发重扫，让系统按文件时间重建 date_taken。
+     * 2. 方案2 且文件名可解析、且「写入 EXIF」开关开启时，把该时间写入照片 EXIF——
+     *    因为系统重扫时优先按 EXIF 重建 date_taken，若文件内 EXIF 本身错误或缺失，
+     *    只改文件时间会导致相册日期又被「恢复」错误；
+     * 3. 把文件时间设为该时间；
+     * 4. 通过 rename 走 → 删记录 → rename 回 → 触发重扫，让系统按文件时间重建 date_taken。
      */
     private fun fixOne(item: MediaItem): Boolean {
         if (item.path.isBlank()) return false
@@ -325,13 +335,14 @@ class MainActivity : ComponentActivity() {
         val modifiedMillis = item.dateModifiedSeconds * 1000
         val takenMillis = item.dateTakenMillis
         val fallbackMillis = if (takenMillis > 0) minOf(takenMillis, modifiedMillis) else modifiedMillis
-        val correctMillis = if (fixScheme == SCHEME_FILENAME && item.filenameMillis > 0) {
-            item.filenameMillis
-        } else {
-            fallbackMillis
-        }
+        val useFilenameTime = fixScheme == SCHEME_FILENAME && item.filenameMillis > 0
+        val correctMillis = if (useFilenameTime) item.filenameMillis else fallbackMillis
 
         return try {
+            // 先写 EXIF 再改文件时间：saveAttributes 重写文件会更新修改时间
+            if (useFilenameTime && writeExif) {
+                writeExifDateTime(file, item.filenameMillis)
+            }
             file.setLastModified(correctMillis)
 
             // rename 走 → 删记录 → rename 回 → 触发扫描，等价于「删除重放」但保留文件内容
@@ -347,6 +358,23 @@ class MainActivity : ComponentActivity() {
             true
         } catch (_: Exception) {
             false
+        }
+    }
+
+    /**
+     * 把文件名时间写入照片 EXIF（DateTimeOriginal / DateTime / DateTimeDigital），
+     * 供系统重扫时按 EXIF 正确重建 date_taken。
+     * 不支持 EXIF 写入的格式或写入失败时静默忽略，仅保留文件时间修复，不影响主流程。
+     */
+    private fun writeExifDateTime(file: File, millis: Long) {
+        try {
+            val exif = ExifInterface(file.absolutePath)
+            val formatted = SimpleDateFormat("yyyy:MM:dd HH:mm:ss", Locale.US).format(Date(millis))
+            exif.setAttribute(ExifInterface.TAG_DATETIME_ORIGINAL, formatted)
+            exif.setAttribute(ExifInterface.TAG_DATETIME, formatted)
+            exif.setAttribute(ExifInterface.TAG_DATETIME_DIGITIZED, formatted)
+            exif.saveAttributes()
+        } catch (_: Exception) {
         }
     }
 
