@@ -869,14 +869,22 @@ class MainActivity : ComponentActivity() {
             onDismissRequest = { },
             title = { Text(stringResource(R.string.disclaimer_title)) },
             text = {
-                Column {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 320.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
                     Text(
                         text = stringResource(R.string.disclaimer_body),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier
-                            .heightIn(max = 200.dp)
-                            .verticalScroll(rememberScrollState())
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    // 需要用户逐字输入的声明文字，醒目展示在输入框上方
+                    Text(
+                        text = stringResource(R.string.disclaimer_ack_input),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 12.dp)
                     )
                     OutlinedTextField(
                         value = input,

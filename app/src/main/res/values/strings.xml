@@ -69,7 +69,7 @@
     <!-- First-use disclaimer -->
     <string name="disclaimer_title">Notice before use</string>
     <string name="disclaimer_body">Although this tool will not delete your photos, it may incorrectly modify photo-related information. Please back up all photos and videos before using this tool to avoid irreversible problems.</string>
-    <string name="disclaimer_input_hint">Type the statement below to continue</string>
+    <string name="disclaimer_input_hint">Type the statement above exactly</string>
     <string name="disclaimer_ack_input">I understand the above risks, agree to use this tool, and the author is not responsible for any data issues caused by it.</string>
     <string name="disclaimer_confirm">I understand, start using</string>
 </resources>
