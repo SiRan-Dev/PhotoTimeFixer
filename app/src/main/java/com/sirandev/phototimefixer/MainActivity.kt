@@ -194,7 +194,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun updateStatus() {
-        val abnormal = mediaItems.count { it.isAbnormal(fixScheme, thresholdSeconds) }
+        val abnormal = mediaItems.count { it.isAbnormal(fixScheme, thresholdSeconds, renameToExif) }
         statusText = getString(R.string.status_result, mediaItems.size, abnormal)
     }
 
@@ -450,7 +450,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun toggleSelectAll() {
-        val abnormalItems = mediaItems.filter { it.isAbnormal(fixScheme, thresholdSeconds) }
+        val abnormalItems = mediaItems.filter { it.isAbnormal(fixScheme, thresholdSeconds, renameToExif) }
         val allAbnormalSelected = abnormalItems.isNotEmpty() && abnormalItems.all { it.selected }
         val target = !allAbnormalSelected
         abnormalItems.forEach { it.selected = target }
@@ -472,17 +472,30 @@ class MainActivity : ComponentActivity() {
 
         /**
          * 判断显示时间是否异常：
-         * · 方案2 且文件名可解析：比较「文件名时间」与「文件时间」；
-         * · 其余情况：比较「拍摄时间」与「文件时间」。
+         * · 方案2：比较「文件名时间（或拍摄时间）」与「文件时间」；
+         * · 方案1：比较「拍摄时间」与「文件时间」；若开启「按 EXIF 重命名」，
+         *   文件名时间与拍摄时间不符（如文件名时区少 8 小时）也标记为异常，
+         *   以便「全选异常」后通过重命名修复。
          */
-        fun isAbnormal(scheme: Int, thresholdSeconds: Long): Boolean {
-            val referenceMillis = if (scheme == SCHEME_FILENAME && filenameMillis > 0) {
-                filenameMillis
-            } else {
-                dateTakenMillis
+        fun isAbnormal(scheme: Int, thresholdSeconds: Long, renameEnabled: Boolean = false): Boolean {
+            if (scheme == SCHEME_FILENAME) {
+                val referenceMillis = if (filenameMillis > 0) filenameMillis else dateTakenMillis
+                if (referenceMillis <= 0) return false
+                return abs(referenceMillis / 1000 - dateModifiedSeconds) > thresholdSeconds
             }
-            if (referenceMillis <= 0) return false
-            return abs(referenceMillis / 1000 - dateModifiedSeconds) > thresholdSeconds
+            // 方案1：拍摄时间 vs 文件时间
+            if (dateTakenMillis > 0 &&
+                abs(dateTakenMillis / 1000 - dateModifiedSeconds) > thresholdSeconds
+            ) {
+                return true
+            }
+            // 方案1 + 重命名开关：文件名时间 vs 拍摄时间
+            if (renameEnabled && filenameMillis > 0 && dateTakenMillis > 0 &&
+                abs(filenameMillis / 1000 - dateTakenMillis / 1000) > thresholdSeconds
+            ) {
+                return true
+            }
+            return false
         }
     }
 
@@ -613,7 +626,7 @@ class MainActivity : ComponentActivity() {
                         OutlinedButton(
                             onClick = {
                                 val abnormalIdx = mediaItems.indices.filter {
-                                    mediaItems[it].isAbnormal(fixScheme, thresholdSeconds)
+                                    mediaItems[it].isAbnormal(fixScheme, thresholdSeconds, renameToExif)
                                 }
                                 if (abnormalIdx.isNotEmpty()) {
                                     // 列表按拍摄时间降序（新→旧），索引越大越旧。
@@ -626,7 +639,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             },
-                            enabled = mediaItems.any { it.isAbnormal(fixScheme, thresholdSeconds) },
+                            enabled = mediaItems.any { it.isAbnormal(fixScheme, thresholdSeconds, renameToExif) },
                             modifier = Modifier
                                 .weight(1f)
                                 .height(56.dp)
@@ -765,7 +778,9 @@ class MainActivity : ComponentActivity() {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                val useFilenameTime = fixScheme == SCHEME_FILENAME && item.filenameMillis > 0
+                // 方案2；或方案1 开启重命名开关时，都以「文件名时间」为主时间展示，便于核对
+                val useFilenameTime = item.filenameMillis > 0 &&
+                    (fixScheme == SCHEME_FILENAME || (fixScheme == SCHEME_TAKEN && renameToExif))
                 val primaryTime = formatTime(if (useFilenameTime) item.filenameMillis else item.dateTakenMillis)
                 val modified = formatTime(item.dateModifiedSeconds * 1000)
                 Text(
@@ -774,7 +789,7 @@ class MainActivity : ComponentActivity() {
                         primaryTime, modified
                     ),
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (item.isAbnormal(fixScheme, thresholdSeconds)) {
+                    color = if (item.isAbnormal(fixScheme, thresholdSeconds, renameToExif)) {
                         MaterialTheme.colorScheme.error
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
