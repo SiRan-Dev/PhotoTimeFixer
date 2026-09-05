@@ -12,3 +12,4 @@ local.properties
 # 视频脚本自带的 ExifTool 二进制（较大，不入库，可自行下载）
 /video_time_fixer/tools/
 /keystore/
+.workbuddy/
