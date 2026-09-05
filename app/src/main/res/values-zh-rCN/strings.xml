@@ -53,7 +53,7 @@
     <string name="item_info">拍摄 %1$s · 文件 %2$s</string>
     <string name="item_info_name">文件名 %1$s · 文件 %2$s</string>
     <string name="status_result">共 %1$d 张照片，疑似时间异常 %2$d 张</string>
-    <string name="status_processing">正在处理 %1$d 张……</string>
+    <string name="status_processing">正在处理 %1$d / %2$d 张……</string>
     <string name="status_done">处理完成：成功 %1$d，失败 %2$d</string>
     <string name="time_unknown">未知</string>
 

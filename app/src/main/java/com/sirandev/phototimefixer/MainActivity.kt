@@ -60,6 +60,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -141,6 +142,10 @@ class MainActivity : ComponentActivity() {
     private var fixConfirm by mutableStateOf<FixConfirmPlan?>(null)
     private var scanning by mutableStateOf(false)
     private var fixing by mutableStateOf(false)
+
+    /** 批量修复进度（已完成 / 总数），驱动进度条与状态行实时刷新。 */
+    private var fixProgressDone by mutableIntStateOf(0)
+    private var fixProgressTotal by mutableIntStateOf(0)
     private var statusText by mutableStateOf("")
     private var lastJumpedAbnormalIndex by mutableIntStateOf(-1)
 
@@ -340,13 +345,20 @@ class MainActivity : ComponentActivity() {
 
     private fun startFix(selected: List<MediaItem>, renames: Map<MediaItem, String>) {
         fixing = true
-        statusText = getString(R.string.status_processing, selected.size)
+        fixProgressDone = 0
+        fixProgressTotal = selected.size
+        statusText = getString(R.string.status_processing, 0, selected.size)
         lifecycleScope.launch {
             var ok = 0
             var fail = 0
             withContext(Dispatchers.IO) {
                 for (item in selected) {
                     if (fixOne(item, renames[item])) ok++ else fail++
+                    // 实时刷新进度（状态写入切回主线程）
+                    withContext(Dispatchers.Main) {
+                        fixProgressDone++
+                        statusText = getString(R.string.status_processing, fixProgressDone, fixProgressTotal)
+                    }
                 }
             }
             fixing = false
@@ -587,6 +599,16 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
                 )
+
+                // 批量修复进度条
+                if (fixing && fixProgressTotal > 0) {
+                    LinearProgressIndicator(
+                        progress = { fixProgressDone.toFloat() / fixProgressTotal },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                    )
+                }
 
                 // 列表
                 LazyColumn(

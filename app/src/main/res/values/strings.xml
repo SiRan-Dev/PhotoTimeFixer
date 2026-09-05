@@ -55,7 +55,7 @@
     <string name="item_info">Taken %1$s · File %2$s</string>
     <string name="item_info_name">Name %1$s · File %2$s</string>
     <string name="status_result">Scanned: %1$d · abnormal: %2$d</string>
-    <string name="status_processing">Fixing %1$d…</string>
+    <string name="status_processing">Processing %1$d / %2$d…</string>
     <string name="status_done">Done: %1$d succeeded · %2$d failed</string>
     <string name="time_unknown">Unknown</string>
 
