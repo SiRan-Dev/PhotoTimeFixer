@@ -46,6 +46,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -54,6 +55,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -63,6 +66,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -153,6 +157,9 @@ class MainActivity : ComponentActivity() {
 
     /** 正在计算修复计划（含磁盘检查），期间禁用「处理选中」。 */
     private var fixPlanning by mutableStateOf(false)
+
+    /** 首次使用风险公告：输入声明文字确认后才可使用（只出现一次）。 */
+    private var disclaimerAccepted by mutableStateOf(true)
     private var statusText by mutableStateOf("")
     private var lastJumpedAbnormalIndex by mutableIntStateOf(-1)
 
@@ -163,13 +170,24 @@ class MainActivity : ComponentActivity() {
         fixScheme = prefs.getInt("fix_scheme", SCHEME_TAKEN)
         writeExif = prefs.getBoolean("write_exif", true)
         renameToExif = prefs.getBoolean("rename_to_exif", false)
+        disclaimerAccepted = prefs.getBoolean("disclaimer_accepted", false)
 
         setContent {
             PhotoTimeFixerTheme {
                 MainScreen()
+                if (!disclaimerAccepted) {
+                    DisclaimerDialog(onAccepted = {
+                        prefs.edit { putBoolean("disclaimer_accepted", true) }
+                        disclaimerAccepted = true
+                        checkPermissionsAndScan()
+                    })
+                }
             }
         }
-        checkPermissionsAndScan()
+        // 未确认风险公告前不启动权限申请与扫描
+        if (disclaimerAccepted) {
+            checkPermissionsAndScan()
+        }
     }
 
     /**
@@ -836,6 +854,50 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * 首次使用风险公告：不可点击外部或返回键关闭，必须逐字输入声明文字
+     * 才会启用「确认」按钮，确认后记录到 SharedPreferences，之后不再弹出。
+     */
+    @Composable
+    private fun DisclaimerDialog(onAccepted: () -> Unit) {
+        val requiredText = stringResource(R.string.disclaimer_ack_input)
+        var input by remember { mutableStateOf("") }
+        AlertDialog(
+            // onDismissRequest 为空操作：点外部/返回键不会关闭，必须输入声明确认
+            onDismissRequest = { },
+            title = { Text(stringResource(R.string.disclaimer_title)) },
+            text = {
+                Column {
+                    Text(
+                        text = stringResource(R.string.disclaimer_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .heightIn(max = 200.dp)
+                            .verticalScroll(rememberScrollState())
+                    )
+                    OutlinedTextField(
+                        value = input,
+                        onValueChange = { input = it },
+                        label = { Text(stringResource(R.string.disclaimer_input_hint)) },
+                        isError = input.isNotBlank() && input.trim() != requiredText,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = input.trim() == requiredText,
+                    onClick = onAccepted
+                ) {
+                    Text(stringResource(R.string.disclaimer_confirm))
+                }
+            }
+        )
     }
 
     @Composable

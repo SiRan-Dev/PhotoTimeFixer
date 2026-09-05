@@ -63,4 +63,11 @@
     <string name="toast_open_fail">无法打开相册</string>
     <string name="toast_fixing">正在批量处理，完成后再查看</string>
     <string name="toast_grant_storage">请授予「所有文件访问权限」以修改照片时间</string>
+
+    <!-- First-use disclaimer -->
+    <string name="disclaimer_title">使用前必读</string>
+    <string name="disclaimer_body">本工具虽然不会导致照片丢失，但有可能会导致照片的相关信息被错误地修改。请在使用本工具前先备份所有照片和视频，以免出现不可逆的问题。</string>
+    <string name="disclaimer_input_hint">请输入下方声明文字以继续</string>
+    <string name="disclaimer_ack_input">我已知悉以上风险，并同意使用该工具，并且由此造成的数据问题与作者无关。</string>
+    <string name="disclaimer_confirm">我已知晓，开始使用</string>
 </resources>
