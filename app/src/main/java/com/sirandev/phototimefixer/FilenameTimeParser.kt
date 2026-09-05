@@ -77,4 +77,49 @@ object FilenameTimeParser {
         cal.set(year, month - 1, day, hour, minute, second)
         return cal.timeInMillis
     }
+
+    /**
+     * 按新时间改写文件名中的时间部分，保留前缀/分隔符风格与扩展名：
+     * IMG_20230905_143022.jpg → IMG_20250101_093045.jpg（紧凑风格）
+     * Screenshot_2023-09-05_14-30-22.png → Screenshot_2025-01-01_09-30-45.png（分隔风格）
+     * 小米毫秒后缀（_143022123 的 "123"）会被移除，避免新名字携带过期毫秒。
+     * 通过正则捕获组（年/月/日/时/分/秒各自的数字区间）逐一替换，
+     * 各分组间的分隔符原样保留；原文件名缺秒时新秒数不写入。
+     * 文件名不含可解析的日期+时间时返回 null。
+     */
+    fun buildRenamedName(name: String, millis: Long): String? {
+        val dot = name.lastIndexOf('.')
+        val base = if (dot > 0) name.substring(0, dot) else name
+        val ext = if (dot > 0) name.substring(dot) else ""
+        val m = dateTimeRegex.find(base) ?: return null
+
+        val cal = Calendar.getInstance()
+        cal.clear()
+        cal.timeInMillis = millis
+        val numbers = listOf(
+            cal.get(Calendar.YEAR),
+            cal.get(Calendar.MONTH) + 1,
+            cal.get(Calendar.DAY_OF_MONTH),
+            cal.get(Calendar.HOUR_OF_DAY),
+            cal.get(Calendar.MINUTE),
+            cal.get(Calendar.SECOND),
+        )
+        val sb = StringBuilder(base)
+        // 从后往前替换各捕获组，避免前面替换改变后面区间位置
+        for (group in 6 downTo 1) {
+            val range = m.groups[group]?.range ?: continue // 原名缺该字段（如秒）时跳过
+            val width = range.last - range.first + 1
+            val value = numbers[group - 1].toString()
+            val replacement = if (value.length > width) value.takeLast(width) else value.padStart(width, '0')
+            sb.replace(range.first, range.last + 1, replacement)
+        }
+
+        // 移除紧随其后的亚秒数字（如 _143022123 中被截断的 "123"）
+        var after = base.substring(m.range.last + 1)
+        val subSecond = after.takeWhile { it.isDigit() }
+        if (subSecond.length in 1..3) {
+            after = after.substring(subSecond.length)
+        }
+        return base.substring(0, m.range.first) + sb.substring(m.range.first, m.range.last + 1) + after + ext
+    }
 }

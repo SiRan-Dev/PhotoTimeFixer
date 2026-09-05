@@ -115,4 +115,60 @@ class FilenameTimeParserTest {
             FilenameTimeParser.parse("IMG_20230905_143022.jpg.jpg")
         )
     }
+
+    // ── buildRenamedName：按 EXIF 时间重命名 ──────────────
+
+    private val renameTarget: Long by lazy { expectedMillis(2025, 1, 1, 9, 30, 45) }
+
+    @Test
+    fun `重命名_紧凑风格`() {
+        assertEquals("IMG_20250101_093045.jpg", FilenameTimeParser.buildRenamedName("IMG_20230905_143022.jpg", renameTarget))
+        assertEquals(
+            "MVIMG_20250101_093045.jpg",
+            FilenameTimeParser.buildRenamedName("MVIMG_20260828_170650.jpg", renameTarget)
+        )
+    }
+
+    @Test
+    fun `重命名_分隔风格保留原样式`() {
+        assertEquals(
+            "Screenshot_2025-01-01_09-30-45.png",
+            FilenameTimeParser.buildRenamedName("Screenshot_2023-09-05_14-30-22.png", renameTarget)
+        )
+        assertEquals(
+            "IMG_2025_01_01_09.30.45.jpg",
+            FilenameTimeParser.buildRenamedName("IMG_2023_09_05_14.30.22.jpg", renameTarget)
+        )
+    }
+
+    @Test
+    fun `重命名_移除毫秒后缀`() {
+        assertEquals(
+            "IMG_20250101_093045.jpg",
+            FilenameTimeParser.buildRenamedName("IMG_20230905_143022123.jpg", renameTarget)
+        )
+    }
+
+    @Test
+    fun `重命名_原名缺秒则新秒不写入`() {
+        assertEquals(
+            "photo_20250101_0930.jpg",
+            FilenameTimeParser.buildRenamedName("photo_20230905_1430.jpg", renameTarget)
+        )
+    }
+
+    @Test
+    fun `重命名_无时间或仅日期不重命名`() {
+        assertEquals(null, FilenameTimeParser.buildRenamedName("DSC_0001.jpg", renameTarget))
+        // 仅日期的文件名（如 WhatsApp）缺少时间结构，不做重命名
+        assertEquals(null, FilenameTimeParser.buildRenamedName("IMG-20230905-WA0001.jpg", renameTarget))
+    }
+
+    @Test
+    fun `重命名_时间相同时名字不变`() {
+        assertEquals(
+            "IMG_20250101_093045.jpg",
+            FilenameTimeParser.buildRenamedName("IMG_20250101_093045.jpg", renameTarget)
+        )
+    }
 }
