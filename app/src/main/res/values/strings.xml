@@ -57,10 +57,12 @@
     <string name="status_result">Scanned: %1$d · abnormal: %2$d</string>
     <string name="status_processing">Processing %1$d / %2$d…</string>
     <string name="status_done">Done: %1$d succeeded · %2$d failed</string>
+    <string name="status_cancelled">Cancelled: %1$d succeeded · %2$d failed</string>
     <string name="time_unknown">Unknown</string>
 
     <!-- Toasts -->
     <string name="toast_select_hint">Select the photos to fix first</string>
     <string name="toast_open_fail">Can\'t open gallery</string>
+    <string name="toast_fixing">Batch fix in progress, try again later</string>
     <string name="toast_grant_storage">Grant “All files access” permission to modify photo time</string>
 </resources>

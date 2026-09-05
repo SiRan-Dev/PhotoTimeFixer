@@ -99,6 +99,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 
 /**
@@ -146,6 +147,12 @@ class MainActivity : ComponentActivity() {
     /** 批量修复进度（已完成 / 总数），驱动进度条与状态行实时刷新。 */
     private var fixProgressDone by mutableIntStateOf(0)
     private var fixProgressTotal by mutableIntStateOf(0)
+
+    /** 批量修复取消标记（后台线程读取，需原子类）。 */
+    private val fixCancelRequested = AtomicBoolean(false)
+
+    /** 正在计算修复计划（含磁盘检查），期间禁用「处理选中」。 */
+    private var fixPlanning by mutableStateOf(false)
     private var statusText by mutableStateOf("")
     private var lastJumpedAbnormalIndex by mutableIntStateOf(-1)
 
@@ -251,12 +258,48 @@ class MainActivity : ComponentActivity() {
         scanning = true
         statusText = getString(R.string.status_scanning)
         lifecycleScope.launch {
+            // 先恢复上次批量修复可能中断留下的 .ptfixer_tmp 文件
+            recoverLeftoverTmpFiles()
             val items = withContext(Dispatchers.IO) { queryMedia() }
             mediaItems.clear()
             mediaItems.addAll(items)
             scanning = false
             lastJumpedAbnormalIndex = -1
             updateStatus()
+        }
+    }
+
+    /**
+     * 恢复残留的 .ptfixer_tmp 文件：批量修复中途被杀时，文件可能停在
+     * 「原名 + .ptfixer_tmp」状态，相册不识别该扩展名导致照片"消失"。
+     * 每次扫描前把它们改名回原名并触发重扫，保证照片不丢。
+     */
+    private suspend fun recoverLeftoverTmpFiles() = withContext(Dispatchers.IO) {
+        val projection = arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DATA)
+        try {
+            contentResolver.query(
+                MediaStore.Files.getContentUri("external"),
+                projection,
+                "${MediaStore.MediaColumns.DATA} LIKE ?",
+                arrayOf("%.ptfixer_tmp"),
+                null
+            )?.use { c ->
+                val dataIdx = c.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA)
+                while (c.moveToNext()) {
+                    val path = c.getString(dataIdx) ?: continue
+                    val tmp = File(path)
+                    val origin = File(path.removeSuffix(".ptfixer_tmp"))
+                    if (tmp.exists() && !origin.exists()) {
+                        if (tmp.renameTo(origin)) {
+                            MediaScannerConnection.scanFile(
+                                this@MainActivity, arrayOf(origin.absolutePath), null, null
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            // 某些系统版本对 Files 集合按 DATA 过滤有限制，恢复失败不阻塞扫描
         }
     }
 
@@ -316,35 +359,44 @@ class MainActivity : ComponentActivity() {
     )
 
     private fun fixSelected() {
+        if (fixing || fixPlanning) return
         val selected = mediaItems.filter { it.selected }
         if (selected.isEmpty()) {
             Toast.makeText(this, R.string.toast_select_hint, Toast.LENGTH_SHORT).show()
             return
         }
 
-        // 计划本次修复将要执行的动作：重命名（方案1 + 开关）与 EXIF 写入（方案2 + 开关）
-        val renames = if (fixScheme == SCHEME_TAKEN && renameToExif) {
-            selected.mapNotNull { item ->
-                buildRenameTarget(item)?.let { item to it }
-            }.toMap()
-        } else {
-            emptyMap()
-        }
-        val exifCount = if (fixScheme == SCHEME_FILENAME && writeExif) {
-            selected.count { it.filenameMillis > 0 }
-        } else {
-            0
-        }
+        // 计划本次修复将要执行的动作：重命名（方案1 + 开关）与 EXIF 写入（方案2 + 开关）。
+        // 计划含磁盘检查（目标名是否占用），放 IO 线程，避免选中上千张时卡主线程。
+        fixPlanning = true
+        lifecycleScope.launch {
+            val renames = if (fixScheme == SCHEME_TAKEN && renameToExif) {
+                withContext(Dispatchers.IO) {
+                    selected.mapNotNull { item ->
+                        buildRenameTarget(item)?.let { item to it }
+                    }.toMap()
+                }
+            } else {
+                emptyMap()
+            }
+            val exifCount = if (fixScheme == SCHEME_FILENAME && writeExif) {
+                selected.count { it.filenameMillis > 0 }
+            } else {
+                0
+            }
+            fixPlanning = false
 
-        if (renames.isEmpty() && exifCount == 0) {
-            startFix(selected, renames)
-        } else {
-            fixConfirm = FixConfirmPlan(selected, renames, exifCount)
+            if (renames.isEmpty() && exifCount == 0) {
+                startFix(selected, renames)
+            } else {
+                fixConfirm = FixConfirmPlan(selected, renames, exifCount)
+            }
         }
     }
 
     private fun startFix(selected: List<MediaItem>, renames: Map<MediaItem, String>) {
         fixing = true
+        fixCancelRequested.set(false)
         fixProgressDone = 0
         fixProgressTotal = selected.size
         statusText = getString(R.string.status_processing, 0, selected.size)
@@ -353,6 +405,7 @@ class MainActivity : ComponentActivity() {
             var fail = 0
             withContext(Dispatchers.IO) {
                 for (item in selected) {
+                    if (fixCancelRequested.get()) break // 用户取消，停止处理剩余项
                     if (fixOne(item, renames[item])) ok++ else fail++
                     // 实时刷新进度（状态写入切回主线程）
                     withContext(Dispatchers.Main) {
@@ -362,8 +415,13 @@ class MainActivity : ComponentActivity() {
                 }
             }
             fixing = false
-            statusText = getString(R.string.status_done, ok, fail)
-            Toast.makeText(this@MainActivity, getString(R.string.status_done, ok, fail), Toast.LENGTH_LONG).show()
+            val cancelled = ok + fail < selected.size
+            statusText = if (cancelled) {
+                getString(R.string.status_cancelled, ok, fail)
+            } else {
+                getString(R.string.status_done, ok, fail)
+            }
+            Toast.makeText(this@MainActivity, statusText, Toast.LENGTH_LONG).show()
             scanAndIdentify()
         }
     }
@@ -371,7 +429,8 @@ class MainActivity : ComponentActivity() {
     /**
      * 计算方案1下按 EXIF 时间重命名后的完整路径。
      * 仅处理文件名中包含可解析时间的照片（时间乱码无法解析的文件名无替换基准）；
-     * 文件名时间与 EXIF 时间一致、或目标文件已存在时返回 null（不重命名）。
+     * 文件名时间与 EXIF 时间一致时返回 null（不重命名）；
+     * 目标名被占用时追加「-1」~「-9」后缀，保证弹窗承诺的重命名一定执行。
      */
     private fun buildRenameTarget(item: MediaItem): String? {
         if (item.dateTakenMillis <= 0 || item.path.isBlank()) return null
@@ -379,8 +438,23 @@ class MainActivity : ComponentActivity() {
         val newName = buildRenamedName(item.name, correctMillis) ?: return null
         if (newName == item.name) return null
         val parent = File(item.path).parent ?: return null
-        val target = File(parent, newName)
-        return if (target.exists()) null else target.absolutePath
+
+        var candidate = File(parent, newName)
+        if (candidate.exists()) {
+            val dot = newName.lastIndexOf('.')
+            val stem = if (dot > 0) newName.substring(0, dot) else newName
+            val ext = if (dot > 0) newName.substring(dot) else ""
+            var found: File? = null
+            for (i in 1..9) {
+                val alt = File(parent, "$stem-$i$ext")
+                if (!alt.exists()) {
+                    found = alt
+                    break
+                }
+            }
+            return found?.absolutePath // 9 个后缀都被占时放弃（几乎不可能）
+        }
+        return candidate.absolutePath
     }
 
     /**
@@ -540,6 +614,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openInGallery(item: MediaItem) {
+        if (fixing) {
+            // 批量修复中旧记录会被删除重建，此时跳转相册可能失效
+            Toast.makeText(this, R.string.toast_fixing, Toast.LENGTH_SHORT).show()
+            return
+        }
         try {
             val intent = Intent(Intent.ACTION_VIEW)
             intent.setDataAndType(item.uri, "image/*")
@@ -600,14 +679,23 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
                 )
 
-                // 批量修复进度条
+                // 批量修复进度条 + 取消
                 if (fixing && fixProgressTotal > 0) {
-                    LinearProgressIndicator(
-                        progress = { fixProgressDone.toFloat() / fixProgressTotal },
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 8.dp)
-                    )
+                            .padding(bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        LinearProgressIndicator(
+                            progress = { fixProgressDone.toFloat() / fixProgressTotal },
+                            modifier = Modifier
+                                .weight(1f)
+                        )
+                        TextButton(onClick = { fixCancelRequested.set(true) }) {
+                            Text(stringResource(R.string.fix_confirm_cancel))
+                        }
+                    }
                 }
 
                 // 列表

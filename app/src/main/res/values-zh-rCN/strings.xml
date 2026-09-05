@@ -55,10 +55,12 @@
     <string name="status_result">共 %1$d 张照片，疑似时间异常 %2$d 张</string>
     <string name="status_processing">正在处理 %1$d / %2$d 张……</string>
     <string name="status_done">处理完成：成功 %1$d，失败 %2$d</string>
+    <string name="status_cancelled">已取消：成功 %1$d，失败 %2$d</string>
     <string name="time_unknown">未知</string>
 
     <!-- Toasts -->
     <string name="toast_select_hint">请先勾选要处理的照片</string>
     <string name="toast_open_fail">无法打开相册</string>
+    <string name="toast_fixing">正在批量处理，完成后再查看</string>
     <string name="toast_grant_storage">请授予「所有文件访问权限」以修改照片时间</string>
 </resources>
