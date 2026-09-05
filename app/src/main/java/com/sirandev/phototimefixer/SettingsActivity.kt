@@ -113,6 +113,9 @@ class SettingsActivity : ComponentActivity() {
         var writeExif by remember {
             mutableStateOf(prefs.getBoolean("write_exif", true))
         }
+        var renameToExif by remember {
+            mutableStateOf(prefs.getBoolean("rename_to_exif", false))
+        }
 
         val versionName = remember {
             packageManager.getPackageInfo(packageName, 0).versionName
@@ -244,6 +247,39 @@ class SettingsActivity : ComponentActivity() {
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
+                            }
+                        }
+
+                        // 开关：仅方案1（拍摄时间）下显示，修复时按 EXIF 时间重命名文件名（默认关闭）
+                        if (fixScheme == MainActivity.SCHEME_TAKEN) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 56.dp)
+                                    .clip(MaterialTheme.shapes.medium)
+                                    .clickable {
+                                        renameToExif = !renameToExif
+                                        prefs.edit { putBoolean("rename_to_exif", renameToExif) }
+                                    }
+                                    .padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.rename_to_exif_title),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.rename_to_exif_desc),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = renameToExif,
+                                    onCheckedChange = null // 由 Row 的 clickable 处理
+                                )
                             }
                         }
 

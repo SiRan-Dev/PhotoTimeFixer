@@ -54,6 +54,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalButton
@@ -63,6 +64,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -94,6 +96,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
@@ -133,6 +136,10 @@ class MainActivity : ComponentActivity() {
     private var thresholdSeconds by mutableLongStateOf(60 * 60L)
     private var fixScheme by mutableIntStateOf(SCHEME_TAKEN)
     private var writeExif by mutableStateOf(true)
+    private var renameToExif by mutableStateOf(false)
+
+    /** 非空时弹出「执行修复前」的二次确认对话框（涉及重命名 / 写 EXIF 时）。 */
+    private var fixConfirm by mutableStateOf<FixConfirmPlan?>(null)
     private var scanning by mutableStateOf(false)
     private var fixing by mutableStateOf(false)
     private var statusText by mutableStateOf("")
@@ -144,6 +151,7 @@ class MainActivity : ComponentActivity() {
         thresholdSeconds = prefs.getLong("threshold_seconds", thresholdSeconds)
         fixScheme = prefs.getInt("fix_scheme", SCHEME_TAKEN)
         writeExif = prefs.getBoolean("write_exif", true)
+        renameToExif = prefs.getBoolean("rename_to_exif", false)
 
         setContent {
             PhotoTimeFixerTheme {
@@ -162,12 +170,15 @@ class MainActivity : ComponentActivity() {
         val savedThreshold = prefs.getLong("threshold_seconds", thresholdSeconds)
         val savedScheme = prefs.getInt("fix_scheme", SCHEME_TAKEN)
         val savedWriteExif = prefs.getBoolean("write_exif", true)
+        val savedRenameToExif = prefs.getBoolean("rename_to_exif", false)
         val changed = savedThreshold != thresholdSeconds ||
             savedScheme != fixScheme ||
-            savedWriteExif != writeExif
+            savedWriteExif != writeExif ||
+            savedRenameToExif != renameToExif
         if (savedThreshold != thresholdSeconds) thresholdSeconds = savedThreshold
         if (savedScheme != fixScheme) fixScheme = savedScheme
         if (savedWriteExif != writeExif) writeExif = savedWriteExif
+        if (savedRenameToExif != renameToExif) renameToExif = savedRenameToExif
         if (changed) {
             lastJumpedAbnormalIndex = -1
             updateStatus()
@@ -293,12 +304,42 @@ class MainActivity : ComponentActivity() {
 
     // ── 修复 ──────────────────────────────────────────────
 
+    /** 修复前的二次确认计划：本次将执行的 EXIF 写入与重命名。 */
+    class FixConfirmPlan(
+        val items: List<MediaItem>,
+        val renames: Map<MediaItem, String>,
+        val exifCount: Int,
+    )
+
     private fun fixSelected() {
         val selected = mediaItems.filter { it.selected }
         if (selected.isEmpty()) {
             Toast.makeText(this, R.string.toast_select_hint, Toast.LENGTH_SHORT).show()
             return
         }
+
+        // 计划本次修复将要执行的动作：重命名（方案1 + 开关）与 EXIF 写入（方案2 + 开关）
+        val renames = if (fixScheme == SCHEME_TAKEN && renameToExif) {
+            selected.mapNotNull { item ->
+                buildRenameTarget(item)?.let { item to it }
+            }.toMap()
+        } else {
+            emptyMap()
+        }
+        val exifCount = if (fixScheme == SCHEME_FILENAME && writeExif) {
+            selected.count { it.filenameMillis > 0 }
+        } else {
+            0
+        }
+
+        if (renames.isEmpty() && exifCount == 0) {
+            startFix(selected, renames)
+        } else {
+            fixConfirm = FixConfirmPlan(selected, renames, exifCount)
+        }
+    }
+
+    private fun startFix(selected: List<MediaItem>, renames: Map<MediaItem, String>) {
         fixing = true
         statusText = getString(R.string.status_processing, selected.size)
         lifecycleScope.launch {
@@ -306,7 +347,7 @@ class MainActivity : ComponentActivity() {
             var fail = 0
             withContext(Dispatchers.IO) {
                 for (item in selected) {
-                    if (fixOne(item)) ok++ else fail++
+                    if (fixOne(item, renames[item])) ok++ else fail++
                 }
             }
             fixing = false
@@ -317,6 +358,65 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
+     * 计算方案1下按 EXIF 时间重命名后的完整路径。
+     * 仅处理文件名中包含可解析时间的照片（时间乱码无法解析的文件名无替换基准）；
+     * 文件名时间与 EXIF 时间一致、或目标文件已存在时返回 null（不重命名）。
+     */
+    private fun buildRenameTarget(item: MediaItem): String? {
+        if (item.dateTakenMillis <= 0 || item.path.isBlank()) return null
+        val correctMillis = minOf(item.dateTakenMillis, item.dateModifiedSeconds * 1000)
+        val newName = buildRenamedName(item.name, correctMillis) ?: return null
+        if (newName == item.name) return null
+        val parent = File(item.path).parent ?: return null
+        val target = File(parent, newName)
+        return if (target.exists()) null else target.absolutePath
+    }
+
+    /**
+     * 按新时间改写文件名中的时间部分，保留前缀/分隔符风格与扩展名：
+     * IMG_20230905_143022.jpg → IMG_20250101_093045.jpg（紧凑风格）
+     * Screenshot_2023-09-05_14-30-22.png → Screenshot_2025-01-01_09-30-45.png（分隔风格）
+     * 小米毫秒后缀（_143022123 的 "123"）会被移除，避免新名字携带过期毫秒。
+     * 通过正则捕获组（年/月/日/时/分/秒各自的数字区间）逐一替换，
+     * 各分组间的分隔符原样保留；原文件名缺秒时新秒数不写入。
+     */
+    private fun buildRenamedName(name: String, millis: Long): String? {
+        val dot = name.lastIndexOf('.')
+        val base = if (dot > 0) name.substring(0, dot) else name
+        val ext = if (dot > 0) name.substring(dot) else ""
+        val m = FilenameTimeParser.dateTimeRegex.find(base) ?: return null
+
+        val cal = Calendar.getInstance()
+        cal.clear()
+        cal.timeInMillis = millis
+        val numbers = listOf(
+            cal.get(Calendar.YEAR),
+            cal.get(Calendar.MONTH) + 1,
+            cal.get(Calendar.DAY_OF_MONTH),
+            cal.get(Calendar.HOUR_OF_DAY),
+            cal.get(Calendar.MINUTE),
+            cal.get(Calendar.SECOND),
+        )
+        val sb = StringBuilder(base)
+        // 从后往前替换各捕获组，避免前面替换改变后面区间位置
+        for (group in 6 downTo 1) {
+            val range = m.groups[group]?.range ?: continue // 原名缺该字段（如秒）时跳过
+            val width = range.last - range.first + 1
+            val value = numbers[group - 1].toString()
+            val replacement = if (value.length > width) value.takeLast(width) else value.padStart(width, '0')
+            sb.replace(range.first, range.last + 1, replacement)
+        }
+
+        // 移除紧随其后的亚秒数字（如 _143022123 中被截断的 "123"）
+        var after = base.substring(m.range.last + 1)
+        val subSecond = after.takeWhile { it.isDigit() }
+        if (subSecond.length in 1..3) {
+            after = after.substring(subSecond.length)
+        }
+        return base.substring(0, m.range.first) + sb.substring(m.range.first, m.range.last + 1) + after + ext
+    }
+
+    /**
      * 修复单张照片：
      * 1. 依据当前方案确定正确时间——
      *    · 方案1（默认）：取「文件时间与拍摄时间中更早者」；
@@ -324,12 +424,14 @@ class MainActivity : ComponentActivity() {
      * 2. 方案2 且文件名可解析、且「写入 EXIF」开关开启时，把该时间写入照片 EXIF——
      *    因为系统重扫时优先按 EXIF 重建 date_taken，若文件内 EXIF 本身错误或缺失，
      *    只改文件时间会导致相册日期又被「恢复」错误；
-     * 3. 把文件时间设为该时间；
-     * 4. 通过 rename 走 → 删记录 → rename 回 → 触发重扫，让系统按文件时间重建 date_taken。
+     * 3. 方案1 且传入 renameTo 时（「按 EXIF 重命名」开关，已经用户二次确认），
+     *    先把文件重命名为 EXIF 时间对应的名字；
+     * 4. 把文件时间设为该时间；
+     * 5. 通过 rename 走 → 删记录 → rename 回 → 触发重扫，让系统按文件时间重建 date_taken。
      */
-    private fun fixOne(item: MediaItem): Boolean {
+    private fun fixOne(item: MediaItem, renameTo: String? = null): Boolean {
         if (item.path.isBlank()) return false
-        val file = File(item.path)
+        var file = File(item.path)
         if (!file.exists()) return false
 
         val modifiedMillis = item.dateModifiedSeconds * 1000
@@ -339,6 +441,13 @@ class MainActivity : ComponentActivity() {
         val correctMillis = if (useFilenameTime) item.filenameMillis else fallbackMillis
 
         return try {
+            // 先重命名（新名字），再做其它改动
+            if (renameTo != null) {
+                val target = File(renameTo)
+                if (!target.exists() && file.renameTo(target)) {
+                    file = target
+                }
+            }
             // 先写 EXIF 再改文件时间：saveAttributes 重写文件会更新修改时间
             if (useFilenameTime && writeExif) {
                 writeExifDateTime(file, item.filenameMillis)
@@ -346,7 +455,7 @@ class MainActivity : ComponentActivity() {
             file.setLastModified(correctMillis)
 
             // rename 走 → 删记录 → rename 回 → 触发扫描，等价于「删除重放」但保留文件内容
-            val tmp = File(item.path + ".ptfixer_tmp")
+            val tmp = File(file.path + ".ptfixer_tmp")
             if (file.renameTo(tmp)) {
                 try {
                     contentResolver.delete(item.uri, null, null)
@@ -354,7 +463,7 @@ class MainActivity : ComponentActivity() {
                 }
                 tmp.renameTo(file)
             }
-            MediaScannerConnection.scanFile(this, arrayOf(item.path), null, null)
+            MediaScannerConnection.scanFile(this, arrayOf(file.path), null, null)
             true
         } catch (_: Exception) {
             false
@@ -585,6 +694,60 @@ class MainActivity : ComponentActivity() {
                             Text(stringResource(R.string.fix_selected))
                         }
                     }
+                }
+
+                // 修复前二次确认：涉及重命名 / EXIF 写入时弹出
+                fixConfirm?.let { plan ->
+                    AlertDialog(
+                        onDismissRequest = { fixConfirm = null },
+                        title = { Text(stringResource(R.string.fix_confirm_title)) },
+                        text = {
+                            Column {
+                                if (plan.renames.isNotEmpty()) {
+                                    Text(
+                                        text = stringResource(R.string.fix_confirm_rename, plan.renames.size),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    plan.renames.entries.take(3).forEach { (item, target) ->
+                                        Text(
+                                            text = "${item.name} → ${File(target).name}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    if (plan.renames.size > 3) {
+                                        Text(
+                                            text = stringResource(R.string.fix_confirm_more, plan.renames.size - 3),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                if (plan.exifCount > 0) {
+                                    Text(
+                                        text = stringResource(R.string.fix_confirm_exif, plan.exifCount),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                fixConfirm = null
+                                startFix(plan.items, plan.renames)
+                            }) {
+                                Text(stringResource(R.string.fix_confirm_ok))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { fixConfirm = null }) {
+                                Text(stringResource(R.string.fix_confirm_cancel))
+                            }
+                        }
+                    )
                 }
             }
         }

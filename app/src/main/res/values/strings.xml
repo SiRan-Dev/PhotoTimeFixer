@@ -34,6 +34,16 @@
     <string name="fix_scheme_filename_desc">Parse time from file name, e.g. IMG_20230905_143022.jpg; fall back to shooting time when parsing fails</string>
     <string name="exif_write_title">Write file name time into photo EXIF</string>
     <string name="exif_write_desc">Enable when EXIF shooting time is wrong or missing</string>
+    <string name="rename_to_exif_title">Rename files by EXIF time</string>
+    <string name="rename_to_exif_desc">When file name time disagrees with shooting time (e.g. 8-hour offset), rename on fix; asks for confirmation first</string>
+
+    <!-- Fix confirmation -->
+    <string name="fix_confirm_title">Confirm fix</string>
+    <string name="fix_confirm_rename">Will rename %1$d files by shooting time:</string>
+    <string name="fix_confirm_exif">Will write file name time into EXIF of %1$d photos</string>
+    <string name="fix_confirm_more">…and %1$d more files</string>
+    <string name="fix_confirm_ok">Confirm</string>
+    <string name="fix_confirm_cancel">Cancel</string>
 
     <!-- Threshold options -->
     <string name="threshold_min">1 min</string>

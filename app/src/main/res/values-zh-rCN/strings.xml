@@ -32,6 +32,16 @@
     <string name="fix_scheme_filename_desc">从文件名解析拍摄时间（如 IMG_20230905_143022.jpg），解析失败时回退到拍摄时间</string>
     <string name="exif_write_title">把文件名时间写入照片 EXIF</string>
     <string name="exif_write_desc">照片 EXIF 拍摄时间本身错误或缺失时需开启</string>
+    <string name="rename_to_exif_title">按 EXIF 时间重命名文件名</string>
+    <string name="rename_to_exif_desc">文件名时间与拍摄时间不符时（如相差 8 小时），修复时重命名；执行前会二次确认</string>
+
+    <!-- Fix confirmation -->
+    <string name="fix_confirm_title">确认执行修复</string>
+    <string name="fix_confirm_rename">将按拍摄时间重命名 %1$d 个文件：</string>
+    <string name="fix_confirm_exif">将把文件名时间写入 %1$d 个照片的 EXIF</string>
+    <string name="fix_confirm_more">…以及其他 %1$d 个文件</string>
+    <string name="fix_confirm_ok">确认执行</string>
+    <string name="fix_confirm_cancel">取消</string>
 
     <!-- Threshold options -->
     <string name="threshold_min">1 分钟</string>

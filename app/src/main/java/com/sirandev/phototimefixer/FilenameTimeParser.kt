@@ -35,7 +35,7 @@ import java.util.Calendar
 object FilenameTimeParser {
 
     /** 日期 + 时间，中间需有分隔符，如 20230905_143022、2023-09-05_14-30-22。 */
-    private val dateTimeRegex = Regex(
+    val dateTimeRegex = Regex(
         """(\d{4})[-_/.]?(\d{2})[-_/.]?(\d{2})[\s_T-]+(\d{2})[:.\-_]?(\d{2})(?:[:.\-_]?(\d{2}))?"""
     )
 
