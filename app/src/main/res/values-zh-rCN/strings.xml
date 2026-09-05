@@ -31,7 +31,7 @@
     <string name="fix_scheme_filename">文件名时间</string>
     <string name="fix_scheme_filename_desc">从文件名解析拍摄时间（如 IMG_20230905_143022.jpg），解析失败时回退到拍摄时间</string>
     <string name="exif_write_title">把文件名时间写入照片 EXIF</string>
-    <string name="exif_write_desc">文件名方案下生效；照片 EXIF 拍摄时间本身错误或缺失时需开启</string>
+    <string name="exif_write_desc">照片 EXIF 拍摄时间本身错误或缺失时需开启</string>
 
     <!-- Threshold options -->
     <string name="threshold_min">1 分钟</string>

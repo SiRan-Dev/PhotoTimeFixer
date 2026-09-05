@@ -247,35 +247,37 @@ class SettingsActivity : ComponentActivity() {
                             }
                         }
 
-                        // 开关：方案2下把文件名时间写入照片 EXIF（默认开启）
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 56.dp)
-                                .clip(MaterialTheme.shapes.medium)
-                                .clickable {
-                                    writeExif = !writeExif
-                                    prefs.edit { putBoolean("write_exif", writeExif) }
+                        // 开关：仅方案2（文件名时间）下显示，把文件名时间写入照片 EXIF（默认开启）
+                        if (fixScheme == MainActivity.SCHEME_FILENAME) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 56.dp)
+                                    .clip(MaterialTheme.shapes.medium)
+                                    .clickable {
+                                        writeExif = !writeExif
+                                        prefs.edit { putBoolean("write_exif", writeExif) }
+                                    }
+                                    .padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.exif_write_title),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.exif_write_desc),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
-                                .padding(horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.exif_write_title),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = stringResource(R.string.exif_write_desc),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                Switch(
+                                    checked = writeExif,
+                                    onCheckedChange = null // 由 Row 的 clickable 处理
                                 )
                             }
-                            Switch(
-                                checked = writeExif,
-                                onCheckedChange = null // 由 Row 的 clickable 处理
-                            )
                         }
                     }
                 }
