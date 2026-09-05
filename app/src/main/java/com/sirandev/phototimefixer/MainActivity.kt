@@ -108,6 +108,14 @@ import kotlin.math.abs
  */
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        /** 方案1（默认）：以 EXIF 拍摄时间与文件时间中较早者为正确时间。 */
+        const val SCHEME_TAKEN = 0
+
+        /** 方案2：从照片文件名解析拍摄时间（如 IMG_20230905_143022.jpg）。 */
+        const val SCHEME_FILENAME = 1
+    }
+
     private val prefs by lazy { getSharedPreferences("settings", MODE_PRIVATE) }
 
     private val readMediaLauncher = registerForActivityResult(
@@ -122,6 +130,7 @@ class MainActivity : ComponentActivity() {
 
     private val mediaItems = mutableStateListOf<MediaItem>()
     private var thresholdSeconds by mutableLongStateOf(60 * 60L)
+    private var fixScheme by mutableIntStateOf(SCHEME_TAKEN)
     private var scanning by mutableStateOf(false)
     private var fixing by mutableStateOf(false)
     private var statusText by mutableStateOf("")
@@ -131,6 +140,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         applySystemBarAppearance()
         thresholdSeconds = prefs.getLong("threshold_seconds", thresholdSeconds)
+        fixScheme = prefs.getInt("fix_scheme", SCHEME_TAKEN)
 
         setContent {
             PhotoTimeFixerTheme {
@@ -141,14 +151,17 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * 从设置页返回时同步阈值：若用户在设置页调整了阈值，
+     * 从设置页返回时同步阈值与修复方案：任一发生变化时，
      * 立即刷新列表红字与状态计数，并重置跳转进度。
      */
     override fun onResume() {
         super.onResume()
-        val saved = prefs.getLong("threshold_seconds", thresholdSeconds)
-        if (saved != thresholdSeconds) {
-            thresholdSeconds = saved
+        val savedThreshold = prefs.getLong("threshold_seconds", thresholdSeconds)
+        val savedScheme = prefs.getInt("fix_scheme", SCHEME_TAKEN)
+        val changed = savedThreshold != thresholdSeconds || savedScheme != fixScheme
+        if (savedThreshold != thresholdSeconds) thresholdSeconds = savedThreshold
+        if (savedScheme != fixScheme) fixScheme = savedScheme
+        if (changed) {
             lastJumpedAbnormalIndex = -1
             updateStatus()
         }
@@ -164,7 +177,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun updateStatus() {
-        val abnormal = mediaItems.count { it.isAbnormal(thresholdSeconds) }
+        val abnormal = mediaItems.count { it.isAbnormal(fixScheme, thresholdSeconds) }
         statusText = getString(R.string.status_result, mediaItems.size, abnormal)
     }
 
@@ -260,6 +273,7 @@ class MainActivity : ComponentActivity() {
                             dateAddedSeconds = dateAdded,
                             dateModifiedSeconds = dateModified,
                             dateTakenMillis = dateTaken,
+                            filenameMillis = parseTimeFromName(name),
                         )
                     )
                 }
@@ -297,7 +311,9 @@ class MainActivity : ComponentActivity() {
 
     /**
      * 修复单张照片：
-     * 1. 以「文件时间与拍摄时间中更早者」作为正确拍摄时间；
+     * 1. 依据当前方案确定正确时间——
+     *    · 方案1（默认）：取「文件时间与拍摄时间中更早者」；
+     *    · 方案2：优先取从文件名解析出的拍摄时间，解析失败时回退到方案1 逻辑；
      * 2. 把文件时间设为该时间；
      * 3. 通过 rename 走 → 删记录 → rename 回 → 触发重扫，让系统按文件时间重建 date_taken。
      */
@@ -308,7 +324,12 @@ class MainActivity : ComponentActivity() {
 
         val modifiedMillis = item.dateModifiedSeconds * 1000
         val takenMillis = item.dateTakenMillis
-        val correctMillis = if (takenMillis > 0) minOf(takenMillis, modifiedMillis) else modifiedMillis
+        val fallbackMillis = if (takenMillis > 0) minOf(takenMillis, modifiedMillis) else modifiedMillis
+        val correctMillis = if (fixScheme == SCHEME_FILENAME && item.filenameMillis > 0) {
+            item.filenameMillis
+        } else {
+            fallbackMillis
+        }
 
         return try {
             file.setLastModified(correctMillis)
@@ -330,7 +351,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun toggleSelectAll() {
-        val abnormalItems = mediaItems.filter { it.isAbnormal(thresholdSeconds) }
+        val abnormalItems = mediaItems.filter { it.isAbnormal(fixScheme, thresholdSeconds) }
         val allAbnormalSelected = abnormalItems.isNotEmpty() && abnormalItems.all { it.selected }
         val target = !allAbnormalSelected
         abnormalItems.forEach { it.selected = target }
@@ -345,14 +366,31 @@ class MainActivity : ComponentActivity() {
         val dateAddedSeconds: Long,
         val dateModifiedSeconds: Long,
         val dateTakenMillis: Long,
+        /** 从文件名解析出的拍摄时间（毫秒），解析失败为 0。 */
+        val filenameMillis: Long = 0,
     ) {
         var selected by mutableStateOf(false)
 
-        fun isAbnormal(thresholdSeconds: Long): Boolean {
-            if (dateTakenMillis <= 0) return false
-            return abs(dateTakenMillis / 1000 - dateModifiedSeconds) > thresholdSeconds
+        /**
+         * 判断显示时间是否异常：
+         * · 方案2 且文件名可解析：比较「文件名时间」与「文件时间」；
+         * · 其余情况：比较「拍摄时间」与「文件时间」。
+         */
+        fun isAbnormal(scheme: Int, thresholdSeconds: Long): Boolean {
+            val referenceMillis = if (scheme == SCHEME_FILENAME && filenameMillis > 0) {
+                filenameMillis
+            } else {
+                dateTakenMillis
+            }
+            if (referenceMillis <= 0) return false
+            return abs(referenceMillis / 1000 - dateModifiedSeconds) > thresholdSeconds
         }
     }
+
+    // ── 文件名时间解析 ────────────────────────────────────
+    // 解析逻辑在 FilenameTimeParser（可独立单元测试）
+
+    private fun parseTimeFromName(name: String): Long = FilenameTimeParser.parse(name)
 
     private fun formatTime(millis: Long): String {
         if (millis <= 0) return getString(R.string.time_unknown)
@@ -476,7 +514,7 @@ class MainActivity : ComponentActivity() {
                         OutlinedButton(
                             onClick = {
                                 val abnormalIdx = mediaItems.indices.filter {
-                                    mediaItems[it].isAbnormal(thresholdSeconds)
+                                    mediaItems[it].isAbnormal(fixScheme, thresholdSeconds)
                                 }
                                 if (abnormalIdx.isNotEmpty()) {
                                     // 列表按拍摄时间降序（新→旧），索引越大越旧。
@@ -489,7 +527,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             },
-                            enabled = mediaItems.any { it.isAbnormal(thresholdSeconds) },
+                            enabled = mediaItems.any { it.isAbnormal(fixScheme, thresholdSeconds) },
                             modifier = Modifier
                                 .weight(1f)
                                 .height(56.dp)
@@ -574,12 +612,16 @@ class MainActivity : ComponentActivity() {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                val taken = formatTime(item.dateTakenMillis)
+                val useFilenameTime = fixScheme == SCHEME_FILENAME && item.filenameMillis > 0
+                val primaryTime = formatTime(if (useFilenameTime) item.filenameMillis else item.dateTakenMillis)
                 val modified = formatTime(item.dateModifiedSeconds * 1000)
                 Text(
-                    text = stringResource(R.string.item_info, taken, modified),
+                    text = stringResource(
+                        if (useFilenameTime) R.string.item_info_name else R.string.item_info,
+                        primaryTime, modified
+                    ),
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (item.isAbnormal(thresholdSeconds)) {
+                    color = if (item.isAbnormal(fixScheme, thresholdSeconds)) {
                         MaterialTheme.colorScheme.error
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant

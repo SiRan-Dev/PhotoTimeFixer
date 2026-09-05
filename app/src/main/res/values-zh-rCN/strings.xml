@@ -24,6 +24,13 @@
     <string name="settings">设置</string>
     <string name="threshold_setting_title">异常时间阈值</string>
 
+    <!-- Fix scheme -->
+    <string name="fix_scheme_title">修复方案</string>
+    <string name="fix_scheme_taken">拍摄时间（EXIF）</string>
+    <string name="fix_scheme_taken_desc">取 EXIF 拍摄时间与文件时间中较早者</string>
+    <string name="fix_scheme_filename">文件名时间</string>
+    <string name="fix_scheme_filename_desc">从文件名解析拍摄时间（如 IMG_20230905_143022.jpg），解析失败时回退到拍摄时间</string>
+
     <!-- Threshold options -->
     <string name="threshold_min">1 分钟</string>
     <string name="threshold_min10">10 分钟</string>
@@ -32,6 +39,7 @@
 
     <!-- List & status -->
     <string name="item_info">拍摄 %1$s · 文件 %2$s</string>
+    <string name="item_info_name">文件名 %1$s · 文件 %2$s</string>
     <string name="status_result">共 %1$d 张照片，疑似时间异常 %2$d 张</string>
     <string name="status_processing">正在处理 %1$d 张……</string>
     <string name="status_done">处理完成：成功 %1$d，失败 %2$d</string>

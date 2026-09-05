@@ -51,6 +51,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -103,6 +104,9 @@ class SettingsActivity : ComponentActivity() {
         val context = LocalContext.current
         var thresholdSeconds by remember {
             mutableLongStateOf(prefs.getLong("threshold_seconds", 3600L))
+        }
+        var fixScheme by remember {
+            mutableIntStateOf(prefs.getInt("fix_scheme", MainActivity.SCHEME_TAKEN))
         }
 
         val versionName = remember {
@@ -179,6 +183,65 @@ class SettingsActivity : ComponentActivity() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp)
                     )
+                }
+
+                // 分组标题：修复方案
+                Text(
+                    text = stringResource(R.string.fix_scheme_title),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 16.dp, top = 28.dp, bottom = 8.dp)
+                )
+
+                // 修复方案单选卡片
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                        val schemes = listOf(
+                            MainActivity.SCHEME_TAKEN to R.string.fix_scheme_taken,
+                            MainActivity.SCHEME_FILENAME to R.string.fix_scheme_filename,
+                        )
+                        val schemeDescs = mapOf(
+                            MainActivity.SCHEME_TAKEN to R.string.fix_scheme_taken_desc,
+                            MainActivity.SCHEME_FILENAME to R.string.fix_scheme_filename_desc,
+                        )
+                        schemes.forEach { (scheme, labelRes) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 56.dp)
+                                    .clip(MaterialTheme.shapes.medium)
+                                    .clickable {
+                                        fixScheme = scheme
+                                        prefs.edit { putInt("fix_scheme", scheme) }
+                                    }
+                                    .padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = fixScheme == scheme,
+                                    onClick = null // 由 Row 的 clickable 处理
+                                )
+                                Column(modifier = Modifier.padding(start = 8.dp)) {
+                                    Text(
+                                        text = stringResource(labelRes),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = stringResource(schemeDescs.getValue(scheme)),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // 分组标题：时间异常阈值

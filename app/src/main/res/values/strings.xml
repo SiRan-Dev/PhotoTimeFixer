@@ -26,6 +26,13 @@
     <string name="settings">Settings</string>
     <string name="threshold_setting_title">Abnormal time threshold</string>
 
+    <!-- Fix scheme -->
+    <string name="fix_scheme_title">Fix scheme</string>
+    <string name="fix_scheme_taken">Shooting time (EXIF)</string>
+    <string name="fix_scheme_taken_desc">Use the earlier of EXIF shooting time and file time</string>
+    <string name="fix_scheme_filename">File name time</string>
+    <string name="fix_scheme_filename_desc">Parse time from file name, e.g. IMG_20230905_143022.jpg; fall back to shooting time when parsing fails</string>
+
     <!-- Threshold options -->
     <string name="threshold_min">1 min</string>
     <string name="threshold_min10">10 min</string>
@@ -34,6 +41,7 @@
 
     <!-- List & status -->
     <string name="item_info">Taken %1$s · File %2$s</string>
+    <string name="item_info_name">Name %1$s · File %2$s</string>
     <string name="status_result">Scanned: %1$d · abnormal: %2$d</string>
     <string name="status_processing">Fixing %1$d…</string>
     <string name="status_done">Done: %1$d succeeded · %2$d failed</string>
